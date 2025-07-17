@@ -2,18 +2,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award } from 'lucide-react';
+import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award, Menu, X } from 'lucide-react';
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { Timestamp } from 'firebase/firestore';
 
 export default function TeacherDashboard() {
     const [students, setStudents] = useState([]);
     const [stories, setStories] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [activities, setActivities] = useState([]); // NEW: activities from Firestore
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [teacher, setTeacher] = useState(null);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         const auth = getAuth();
@@ -46,11 +49,59 @@ export default function TeacherDashboard() {
             const storiesData = storiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             setStories(storiesData);
 
+            const activitiesSnapshot = await getDocs(collection(db, "activities"));
+            const activitiesData = activitiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            setActivities(activitiesData);
+
             setLoading(false);
         };
         fetchData();
     }, []);
 
+    // --- Dynamic Stats ---
+    // Students added this month
+    const now = new Date();
+    const studentsThisMonth = students.filter(s => {
+        if (!s.createdAt?.seconds) return false;
+        const created = new Date(s.createdAt.seconds * 1000);
+        return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+    }).length;
+    // Stories added this week
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0,0,0,0);
+    const storiesThisWeek = stories.filter(story => {
+        if (!story.createdAt?.seconds) return false;
+        const created = new Date(story.createdAt.seconds * 1000);
+        return created >= startOfWeek;
+    }).length;
+    // Number of unique levels (assuming class.level exists)
+    const levels = Array.from(new Set(classes.map(cls => cls.level))).filter(Boolean);
+    // Average students per class
+    const classDistribution = students.reduce((acc, student) => {
+        acc[student.classId] = (acc[student.classId] || 0) + 1;
+        return acc;
+    }, {});
+    const averageStudentsPerClass = classes.length > 0 ? Math.round(students.length / classes.length) : 0;
+
+    // --- Chart Data ---
+    const classChartData = Object.entries(classDistribution).map(([classId, value]) => ({
+        name: classes.find(cls => cls.id === classId)?.name || classId,
+        value,
+        percentage: Math.round((value / students.length) * 100)
+    }));
+    const languageDistribution = stories.reduce((acc, story) => {
+        acc[story.language] = (acc[story.language] || 0) + 1;
+        return acc;
+    }, {});
+    const languageChartData = Object.entries(languageDistribution).map(([name, value]) => ({
+        name,
+        value,
+        percentage: Math.round((value / stories.length) * 100)
+    }));
+    const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B', '#10B981'];
+
+    // --- UI Render ---
     const getClassName = (classId) => {
         const found = classes.find((cls) => cls.id === classId);
         return found ? found.name : classId;
@@ -81,31 +132,18 @@ export default function TeacherDashboard() {
 
     const stats = getStatsData();
 
-    const classChartData = Object.entries(stats.classDistribution).map(([name, value]) => ({
-        name,
-        value,
-        percentage: Math.round((value / stats.totalStudents) * 100)
+    const recentActivities = activities.map(activity => ({
+        type: activity.type,
+        title: activity.title,
+        description: activity.description,
+        time: activity.time,
+        icon: activity.icon
     }));
-
-    const languageChartData = Object.entries(stats.languageDistribution).map(([name, value]) => ({
-        name,
-        value,
-        percentage: Math.round((value / stats.totalStories) * 100)
-    }));
-
-    const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B', '#10B981'];
-
-    const recentActivities = [
-        { type: 'story', title: 'Nouvelle histoire créée', description: 'Space Adventure par David Chen', time: '2h', icon: BookOpenIcon },
-        { type: 'student', title: 'Nouvel élève inscrit', description: 'Henri Lambert rejoint CM1-B', time: '4h', icon: UserIcon },
-        { type: 'story', title: 'Histoire terminée', description: 'La Quête du Trésor par Emma Wilson', time: '1j', icon: Award },
-        { type: 'class', title: 'Classe mise à jour', description: 'CM2-C - 3 nouveaux élèves', time: '2j', icon: Users }
-    ];
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-5">
-                <div className="bg-white/80 backdrop-blur-sm rounded-3xl w-full max-w-md shadow-2xl text-center border border-white/20">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-3xl w-full max-w-md shadow-2xl text-center border border-white/20 p-8">
                     <div className="relative">
                         <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-6"></div>
                         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 opacity-10 animate-pulse"></div>
@@ -126,52 +164,91 @@ export default function TeacherDashboard() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex flex-col">
             {/* Top Navigation Bar */}
-            <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur border-b border-white/20 shadow-sm flex flex-row items-center justify-between px-2 sm:px-6 py-2">
-                {/* Logo */}
-                <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                        H
+            <nav className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur border-b border-white/20 shadow-sm">
+                <div className="flex items-center justify-between px-4 py-3">
+                    {/* Logo */}
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl shadow-lg">
+                            H
+                        </div>
+                        <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Hikaya</span>
                     </div>
-                    <span className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Hikaya</span>
-                </div>
-                {/* Nav Links */}
-                <div className="flex-1 flex justify-center">
-                    <div className="flex flex-row gap-1 overflow-x-auto">
-                        {navItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`flex flex-col items-center px-3 py-2 rounded-lg font-medium text-xs transition-all duration-200 min-w-[70px] sm:min-w-[100px] ${
-                                    activeTab === item.id
-                                        ? 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 shadow'
-                                        : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50'
-                                }`}
-                            >
-                                <item.icon className="w-5 h-5 mb-1" />
-                                {item.label}
+
+                    {/* Desktop Navigation */}
+                    <div className="hidden md:flex flex-1 justify-center">
+                        <div className="flex gap-1">
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={`flex flex-col items-center px-3 py-2 rounded-lg font-medium text-xs transition-all duration-200 min-w-[100px] ${
+                                        activeTab === item.id
+                                            ? 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 shadow'
+                                            : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50'
+                                    }`}
+                                >
+                                    <item.icon className="w-5 h-5 mb-1" />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Mobile Menu Button & Profile */}
+                    <div className="flex items-center gap-2">
+                        <button 
+                            className="md:hidden p-2 bg-white/60 rounded-full hover:bg-white transition-colors"
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        >
+                            {isMobileMenuOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
+                        </button>
+                        
+                        <div className="hidden sm:flex items-center gap-2">
+                            <button className="p-2 bg-white/60 rounded-full hover:bg-white transition-colors">
+                                <Bell className="w-5 h-5 text-slate-600" />
                             </button>
-                        ))}
+                            <button className="p-2 bg-white/60 rounded-full hover:bg-white transition-colors">
+                                <Settings className="w-5 h-5 text-slate-600" />
+                            </button>
+                        </div>
+                        
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
+                            {teacher ? (teacher.fullName?.charAt(0) || teacher.email?.charAt(0) || 'T') : 'T'}
+                        </div>
                     </div>
                 </div>
-                {/* Profile/Settings */}
-                <div className="flex items-center gap-2">
-                    <button className="p-2 bg-white/60 rounded-full hover:bg-white transition-colors">
-                        <Bell className="w-5 h-5 text-slate-600" />
-                    </button>
-                    <button className="p-2 bg-white/60 rounded-full hover:bg-white transition-colors">
-                        <Settings className="w-5 h-5 text-slate-600" />
-                    </button>
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {teacher ? (teacher.fullName?.charAt(0) || teacher.email?.charAt(0) || 'T') : 'T'}
+
+                {/* Mobile Navigation Menu */}
+                {isMobileMenuOpen && (
+                    <div className="md:hidden border-t border-white/20 bg-white/95 backdrop-blur">
+                        <div className="px-4 py-2">
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => {
+                                        setActiveTab(item.id);
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                        activeTab === item.id
+                                            ? 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 shadow'
+                                            : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50'
+                                    }`}
+                                >
+                                    <item.icon className="w-5 h-5" />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
             </nav>
 
             {/* Main Content */}
-            <main className="flex-1 w-full max-w-5xl mx-auto p-2 sm:p-6">
-                {/* Top Header */}
-                <div className="mb-4">
-                    <h2 className="text-2xl font-bold text-slate-800">
+            <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6">
+                {/* Header */}
+                <div className="mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
                         {activeTab === 'dashboard' ? 'Tableau de Bord' :
                          activeTab === 'students' ? 'Gestion des Élèves' :
                          activeTab === 'stories' ? 'Gestion des Histoires' :
@@ -180,102 +257,105 @@ export default function TeacherDashboard() {
                     <p className="text-slate-500 text-sm">Bienvenue dans votre espace d'enseignement</p>
                 </div>
                 
-                <div className="flex justify-between items-center mb-4">
-                    <div className="relative">
+                {/* Search Bar */}
+                <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-6">
+                    <div className="relative flex-1 max-w-md">
                         <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Rechercher..."
-                            className="pl-10 pr-4 bg-white/60 order border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
+                            className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                     </div>
                 </div>
 
                 {/* Dashboard Content */}
-                <div className="space-y-8">
+                <div className="space-y-6 sm:space-y-8">
                     {activeTab === 'dashboard' && (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="relative">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white">
-                                                <GraduationCapIcon className="w-6 h-6" />
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white">
+                                                <GraduationCapIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <TrendingUp className="w-5 h-5 text-green-500" />
+                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
                                         </div>
-                                        <div className="text-3xl font-bold text-slate-800 mb-2">{stats.totalStudents}</div>
-                                        <div className="text-slate-600 font-medium">Total Élèves</div>
-                                        <div className="text-sm text-green-600 mt-1">+2 ce mois</div>
+                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{students.length}</div>
+                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Total Élèves</div>
+                                        <div className="text-xs sm:text-sm text-green-600 mt-1">+{studentsThisMonth} ce mois</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="relative">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl text-white">
-                                                <BookOpenIcon className="w-6 h-6" />
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl text-white">
+                                                <BookOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <TrendingUp className="w-5 h-5 text-green-500" />
+                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
                                         </div>
-                                        <div className="text-3xl font-bold text-slate-800 mb-2">{stats.totalStories}</div>
-                                        <div className="text-slate-600 font-medium">Total Histoires</div>
-                                        <div className="text-sm text-green-600">+3 cette semaine</div>
+                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{stories.length}</div>
+                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Total Histoires</div>
+                                        <div className="text-xs sm:text-sm text-green-600 mt-1">+{storiesThisWeek} cette semaine</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50/10 to-pink-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="relative">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
-                                                <Users className="w-6 h-6" />
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
+                                                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <Calendar className="w-5 h-5 text-blue-500" />
+                                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
                                         </div>
-                                        <div className="text-3xl font-bold text-slate-800 mb-2">{stats.activeClasses}</div>
-                                        <div className="text-slate-600 font-medium">Classes Actives</div>
-                                        <div className="text-sm text-blue-600">4 niveaux</div>
+                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{levels.length}</div>
+                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Niveaux</div>
+                                        <div className="text-xs sm:text-sm text-blue-600 mt-1">4 niveaux</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="relative">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl text-white">
-                                                <BarChart3Icon className="w-6 h-6" />
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl text-white">
+                                                <BarChart3Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <Award className="w-5 h-5 text-orange-500" />
+                                            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                                         </div>
-                                        <div className="text-3xl font-bold text-slate-800 mb-2">{stats.averageStudentsPerClass}</div>
-                                        <div className="text-slate-600 font-medium">Moy. Élèves/Classe</div>
-                                        <div className="text-sm text-orange-600">Équilibré</div>
+                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{averageStudentsPerClass}</div>
+                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Moy. Élèves/Classe</div>
+                                        <div className="text-xs sm:text-sm text-orange-600 mt-1">Équilibré</div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Charts Section */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-                                    <h3 className="text-xl font-semibold text-slate-800 mb-6">Répartition par Classe</h3>
-                                    <div className="h-64">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-lg">
+                                    <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-4 sm:mb-6">Répartition par Classe</h3>
+                                    <div className="h-48 sm:h-64">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={classChartData}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                                <XAxis dataKey="name" fontSize={12} />
-                                                <YAxis fontSize={12} />
+                                                <XAxis dataKey="name" fontSize={10} />
+                                                <YAxis fontSize={10} />
                                                 <Tooltip 
                                                     contentStyle={{
                                                         backgroundColor: 'rgba(255, 255, 255, 0.9)',
                                                         border: 'none',
                                                         borderRadius: '12px',
-                                                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                                                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                                                        fontSize: '12px'
                                                     }}
                                                 />
-                                                <Bar dataKey="value" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} />
+                                                <Bar dataKey="value" fill="url(#colorGradient)" radius={[4, 4, 0, 0]} />
                                                 <defs>
                                                     <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                                                         <stop offset="0%" stopColor="#6366F1" />
@@ -287,18 +367,19 @@ export default function TeacherDashboard() {
                                     </div>
                                 </div>
                                 
-                                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-                                    <h3 className="text-xl font-semibold text-slate-800 mb-6">Langues des Histoires</h3>
-                                    <div className="h-64">
+                                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-lg">
+                                    <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-4 sm:mb-6">Langues des Histoires</h3>
+                                    <div className="h-48 sm:h-64">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
                                                 <Pie
                                                     data={languageChartData}
                                                     cx="50%"
                                                     cy="50%"
-                                                    outerRadius={80}
+                                                    outerRadius={60}
                                                     dataKey="value"
                                                     label={({ name, percentage }) => `${name} ${percentage}%`}
+                                                    labelStyle={{ fontSize: '10px' }}
                                                 >
                                                     {languageChartData.map((entry, index) => (
                                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -309,7 +390,8 @@ export default function TeacherDashboard() {
                                                         backgroundColor: 'rgba(255, 255, 255, 0.9)',
                                                         border: 'none',
                                                         borderRadius: '12px',
-                                                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                                                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                                                        fontSize: '12px'
                                                     }}
                                                 />
                                             </PieChart>
@@ -319,22 +401,22 @@ export default function TeacherDashboard() {
                             </div>
 
                             {/* Activity Section */}
-                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-                                <h2 className="text-2xl font-semibold text-slate-800 mb-6">Activité Récente</h2>
-                                <div className="space-y-4">
+                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-lg">
+                                <h2 className="text-lg sm:text-2xl font-semibold text-slate-800 mb-4 sm:mb-6">Activité Récente</h2>
+                                <div className="space-y-3 sm:space-y-4">
                                     {recentActivities.map((activity, index) => (
-                                        <div key={index} className="flex items-start gap-4 bg-white/40 rounded-xl hover:bg-white/60 transition-colors">
-                                            <div className={`p-2 rounded-lg ${
+                                        <div key={index} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-white/40 rounded-xl hover:bg-white/60 transition-colors">
+                                            <div className={`p-2 rounded-lg flex-shrink-0 ${
                                                 activity.type === 'story' ? 'bg-green-100 text-green-600' :
                                                 activity.type === 'student' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
                                             }`}>
                                                 <activity.icon className="w-4 h-4" />
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-semibold text-slate-800">{activity.title}</div>
-                                                <div className="text-slate-600">{activity.description}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-slate-800 text-sm sm:text-base truncate">{activity.title}</div>
+                                                <div className="text-slate-600 text-xs sm:text-sm">{activity.description}</div>
                                             </div>
-                                            <div className="text-slate-500 text-sm">{activity.time}</div>
+                                            <div className="text-slate-500 text-xs sm:text-sm flex-shrink-0">{activity.time}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -343,27 +425,73 @@ export default function TeacherDashboard() {
                     )}
 
                     {activeTab === 'students' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-4">
+                        <div className="space-y-4 sm:space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
+                                <div className="flex items-center gap-2 sm:gap-4">
                                     <div className="flex items-center gap-2">
                                         <div className="flex -space-x-2">
                                             {students.slice(0, 3).map((student, i) => (
-                                                <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold border-2">
+                                                <div key={i} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs sm:text-sm font-bold border-2 border-white">
                                                     {student.name?.charAt(0) || 'E'}
                                                 </div>
                                             ))}
                                         </div>
-                                        <span className="text-slate-600 ml-2">+{Math.max(0, students.length - 3)}</span>
+                                        <span className="text-slate-600 text-sm sm:text-base">+{Math.max(0, students.length - 3)}</span>
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-indigo-500/25">
-                                    <Plus className="w-5 h-5" />
+                                <button className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-indigo-500/25 text-sm sm:text-base">
+                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                                     Ajouter un Élève
                                 </button>
                             </div>
                             
-                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+                            {/* Mobile Cards View */}
+                            <div className="block sm:hidden space-y-4">
+                                {students.length === 0 ? (
+                                    <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
+                                        <GraduationCapIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                                        <p className="text-lg">Aucun élève pour le moment</p>
+                                    </div>
+                                ) : (
+                                    students.map((student) => (
+                                        <div key={student.id} className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-lg">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold">
+                                                    {student.name?.charAt(0) || 'E'}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-semibold text-slate-800">{student.name}</div>
+                                                    <div className="text-sm text-slate-500">Élève</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center mb-3">
+                                                <div className="inline-flex items-center px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                                                    {getClassName(student.classId)}
+                                                </div>
+                                                <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                                    student.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                                                }`}>
+                                                    {student.isActive ? "Actif" : "Inactif"}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button className="flex-1 p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
+                                                    <Eye className="w-4 h-4 mx-auto" />
+                                                </button>
+                                                <button className="flex-1 p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                                                    <Edit3 className="w-4 h-4 mx-auto" />
+                                                </button>
+                                                <button className="flex-1 p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
+                                                    <Trash2 className="w-4 h-4 mx-auto" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden sm:block bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
                                 <div className="grid grid-cols-4 gap-6 p-6 bg-slate-50/50 border-b border-slate-200 font-semibold text-slate-700">
                                     <div>Élève</div>
                                     <div>Classe</div>
@@ -385,15 +513,16 @@ export default function TeacherDashboard() {
                                                 </div>
                                                 <div>
                                                     <div className="font-semibold text-slate-800">{student.name}</div>
-                                                    <div className="text-sm text-slate-500">Élève actif</div>
+                                                    <div className="text-sm text-slate-500">Élève {student.isActive ? "Actif" : "Inactif"}</div>
                                                 </div>
                                             </div>
-                                            <div className="inline-flex items-center px-3 py-1 bg-indigo-500 to-purple-500 text-white rounded-full text-sm font-medium">
+                                            <div className="inline-flex items-center px-3 py-1 bg-indigo-500 text-white rounded-full text-sm font-medium">
                                                 {getClassName(student.classId)}
                                             </div>
-                                            <div className="inline-flex items-center px-3 py-1 bg-green-100 to-green-700 rounded-full text-sm font-medium">
-                                                Actif
-                                            </div>
+                                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+    ${student.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"}`}>
+  {student.isActive ? "Actif" : "Inactif"}
+</div>
                                             <div className="flex gap-2">
                                                 <button className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
                                                     <Eye className="w-4 h-4" />
@@ -413,28 +542,28 @@ export default function TeacherDashboard() {
                     )}
 
                     {activeTab === 'stories' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
+                        <div className="space-y-4 sm:space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
                                 <div className="flex items-center gap-4">
-                                    <div className="text-slate-600">
+                                    <div className="text-slate-600 text-sm sm:text-base">
                                         <span className="font-medium">{stories.length}</span> histoires disponibles
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25">
-                                    <Plus className="w-5 h-5" />
+                                <button className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25 text-sm sm:text-base">
+                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                                     Ajouter une Histoire
                                 </button>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 {stories.length === 0 ? (
-                                    <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 order border-white/20">
+                                    <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
                                         <BookOpenIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucune histoire pour le moment</p>
                                     </div>
                                 ) : (
                                     stories.map((story) => (
-                                        <div key={story.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                        <div key={story.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
                                             <div className="flex justify-between items-start mb-4">
                                                 <h3 className="text-lg font-semibold text-slate-800 hover:text-indigo-600 transition-colors">{story.title}</h3>
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -467,28 +596,28 @@ export default function TeacherDashboard() {
                     )}
 
                     {activeTab === 'classes' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
+                        <div className="space-y-4 sm:space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
                                 <div className="flex items-center gap-4">
-                                    <div className="text-slate-600">
+                                    <div className="text-slate-600 text-sm sm:text-base">
                                         <span className="font-medium">{classes.length}</span> classes configurées
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-purple-500/25">
-                                    <Plus className="w-5 h-5" />
+                                <button className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm sm:text-base">
+                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                                     Nouvelle Classe
                                 </button>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 {classes.length === 0 ? (
-                                    <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 order border-white/20">
+                                    <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
                                         <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucune classe pour le moment</p>
                                     </div>
                                 ) : (
                                     classes.map((cls) => (
-                                        <div key={cls.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl transition-all duration-300">
+                                        <div key={cls.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
                                                     <Users className="w-6 h-6" />
