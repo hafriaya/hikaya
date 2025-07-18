@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { doc, getDoc, collection, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import Link from "next/link";
+import { Trash2 } from 'lucide-react';
 
 export default function StudentDetailsPage() {
   const router = useRouter();
@@ -15,6 +16,25 @@ export default function StudentDetailsPage() {
   const [stories, setStories] = useState([]);
   const [readingHistory, setReadingHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) return;
+    setDeleting(true);
+    try {
+      // Delete all readingHistory for this student
+      const rhQuery = query(collection(db, "readingHistory"), where("studentId", "==", id));
+      const rhSnap = await getDocs(rhQuery);
+      await Promise.all(rhSnap.docs.map(docu => deleteDoc(docu.ref)));
+      // Delete the student
+      await deleteDoc(doc(db, "students", id));
+      router.push("/users/teacher/dashboard");
+    } catch (err) {
+      alert("Erreur lors de la suppression : " + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -219,6 +239,16 @@ export default function StudentDetailsPage() {
               )}
             </div>
           </div>
+        </div>
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center gap-2 px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold shadow transition disabled:opacity-60"
+          >
+            <Trash2 className="w-5 h-5" />
+            {deleting ? "Suppression..." : "Supprimer l'élève"}
+          </button>
         </div>
       </div>
     </div>
