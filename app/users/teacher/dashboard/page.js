@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award, Menu, X } from 'lucide-react';
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 
 export default function TeacherDashboard() {
@@ -17,6 +17,10 @@ export default function TeacherDashboard() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [teacher, setTeacher] = useState(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const router = typeof window !== 'undefined' ? require('next/navigation').useRouter() : null;
+    const profileMenuRef = useRef(null);
 
     useEffect(() => {
         const auth = getAuth();
@@ -140,6 +144,28 @@ export default function TeacherDashboard() {
         icon: activity.icon
     }));
 
+    // Search logic
+    const filteredStudents = students.filter(s => s.name?.toLowerCase().includes(search.toLowerCase()));
+    const filteredStories = stories.filter(story => story.title?.toLowerCase().includes(search.toLowerCase()));
+    const filteredClasses = classes.filter(cls => cls.name?.toLowerCase().includes(search.toLowerCase()));
+
+    // Add effect to close profile menu on outside click
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+          setShowProfileMenu(false);
+        }
+      }
+      if (showProfileMenu) {
+        document.addEventListener('mousedown', handleClickOutside);
+      } else {
+        document.removeEventListener('mousedown', handleClickOutside);
+      }
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showProfileMenu]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
@@ -180,7 +206,7 @@ export default function TeacherDashboard() {
                             {navItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setActiveTab(item.id)}
+                                    onClick={() => { setActiveTab(item.id); setSearch(""); }}
                                     className={`flex flex-col items-center px-3 py-2 rounded-lg font-medium text-xs transition-all duration-200 min-w-[100px] ${
                                         activeTab === item.id
                                             ? 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 shadow'
@@ -195,14 +221,13 @@ export default function TeacherDashboard() {
                     </div>
 
                     {/* Mobile Menu Button & Profile */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 relative">
                         <button 
                             className="md:hidden p-2 bg-white/60 rounded-full hover:bg-white transition-colors"
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         >
                             {isMobileMenuOpen ? <X className="w-5 h-5 text-slate-600" /> : <Menu className="w-5 h-5 text-slate-600" />}
                         </button>
-                        
                         <div className="hidden sm:flex items-center gap-2">
                             <button className="p-2 bg-white/60 rounded-full hover:bg-white transition-colors">
                                 <Bell className="w-5 h-5 text-slate-600" />
@@ -211,13 +236,35 @@ export default function TeacherDashboard() {
                                 <Settings className="w-5 h-5 text-slate-600" />
                             </button>
                         </div>
-                        
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
+                        <div
+                            className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base cursor-pointer relative"
+                            onClick={() => setShowProfileMenu(v => !v)}
+                            ref={profileMenuRef}
+                        >
                             {teacher ? (teacher.fullName?.charAt(0) || teacher.email?.charAt(0) || 'T') : 'T'}
+                            {showProfileMenu && (
+                                <div className="absolute right-0 top-12 z-50 bg-white rounded-xl shadow-lg border border-slate-100 min-w-[160px] py-2 flex flex-col text-left">
+                                    <button
+                                        className="px-4 py-2 hover:bg-slate-100 text-slate-700 text-sm text-left"
+                                        onClick={() => { setShowProfileMenu(false); /* TODO: Profile page navigation */ }}
+                                    >
+                                        Profil
+                                    </button>
+                                    <button
+                                        className="px-4 py-2 hover:bg-slate-100 text-red-600 text-sm text-left"
+                                        onClick={async () => {
+                                            setShowProfileMenu(false);
+                                            await signOut(getAuth());
+                                            if (router) router.push('/login');
+                                        }}
+                                    >
+                                        Déconnexion
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-
                 {/* Mobile Navigation Menu */}
                 {isMobileMenuOpen && (
                     <div className="md:hidden border-t border-white/20 bg-white/95 backdrop-blur">
@@ -228,6 +275,7 @@ export default function TeacherDashboard() {
                                     onClick={() => {
                                         setActiveTab(item.id);
                                         setIsMobileMenuOpen(false);
+                                        setSearch("");
                                     }}
                                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
                                         activeTab === item.id
@@ -256,82 +304,84 @@ export default function TeacherDashboard() {
                     </h2>
                     <p className="text-slate-500 text-sm">Bienvenue dans votre espace d'enseignement</p>
                 </div>
-                
-                {/* Search Bar */}
-                <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-6">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Rechercher..."
-                            className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        />
+                {/* Search Bar: only for students, stories, classes */}
+                {(activeTab === 'students' || activeTab === 'stories' || activeTab === 'classes') && (
+                    <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-6">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder={activeTab === 'students' ? 'Rechercher un élève...' : activeTab === 'stories' ? 'Rechercher une histoire...' : 'Rechercher une classe...'}
+                                className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                            />
+                        </div>
                     </div>
-                </div>
-
+                )}
                 {/* Dashboard Content */}
                 <div className="space-y-6 sm:space-y-8">
                     {activeTab === 'dashboard' && (
                         <>
                             {/* Stats Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="relative">
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl transition-all duration-300 hover:shadow-2xl">
+                                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-blue-500 to-indigo-500 z-0"></div>
+                                    <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white">
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
                                                 <GraduationCapIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 group-hover:text-green-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{students.length}</div>
-                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Total Élèves</div>
-                                        <div className="text-xs sm:text-sm text-green-600 mt-1">+{studentsThisMonth} ce mois</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{students.length}</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Total Élèves</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-green-600 group-hover:text-green-100 transition-colors">+{studentsThisMonth} ce mois</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="relative">
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl transition-all duration-300 hover:shadow-2xl">
+                                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-green-500 to-emerald-500 z-0"></div>
+                                    <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl text-white">
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
                                                 <BookOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 group-hover:text-green-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{stories.length}</div>
-                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Total Histoires</div>
-                                        <div className="text-xs sm:text-sm text-green-600 mt-1">+{storiesThisWeek} cette semaine</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{stories.length}</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Total Histoires</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-green-600 group-hover:text-green-100 transition-colors">+{storiesThisWeek} cette semaine</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="relative">
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl transition-all duration-300 hover:shadow-2xl">
+                                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-purple-500 to-pink-500 z-0"></div>
+                                    <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
                                                 <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+                                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 group-hover:text-blue-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{levels.length}</div>
-                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Niveaux</div>
-                                        <div className="text-xs sm:text-sm text-blue-600 mt-1">4 niveaux</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{levels.length}</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Niveaux</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-blue-600 group-hover:text-blue-100 transition-colors">4 niveaux</div>
                                     </div>
                                 </div>
                                 
-                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="relative">
+                                <div className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl transition-all duration-300 hover:shadow-2xl">
+                                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-orange-500 to-red-500 z-0"></div>
+                                    <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl text-white">
+                                            <div className="p-2 sm:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
                                                 <BarChart3Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                                            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 group-hover:text-orange-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">{averageStudentsPerClass}</div>
-                                        <div className="text-slate-600 font-medium text-sm sm:text-base">Moy. Élèves/Classe</div>
-                                        <div className="text-xs sm:text-sm text-orange-600 mt-1">Équilibré</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{averageStudentsPerClass}</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Moy. Élèves/Classe</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-orange-600 group-hover:text-orange-100 transition-colors">Équilibré</div>
                                     </div>
                                 </div>
                             </div>
@@ -399,28 +449,6 @@ export default function TeacherDashboard() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Activity Section */}
-                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-lg">
-                                <h2 className="text-lg sm:text-2xl font-semibold text-slate-800 mb-4 sm:mb-6">Activité Récente</h2>
-                                <div className="space-y-3 sm:space-y-4">
-                                    {recentActivities.map((activity, index) => (
-                                        <div key={index} className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-white/40 rounded-xl hover:bg-white/60 transition-colors">
-                                            <div className={`p-2 rounded-lg flex-shrink-0 ${
-                                                activity.type === 'story' ? 'bg-green-100 text-green-600' :
-                                                activity.type === 'student' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
-                                            }`}>
-                                                <activity.icon className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-semibold text-slate-800 text-sm sm:text-base truncate">{activity.title}</div>
-                                                <div className="text-slate-600 text-xs sm:text-sm">{activity.description}</div>
-                                            </div>
-                                            <div className="text-slate-500 text-xs sm:text-sm flex-shrink-0">{activity.time}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </>
                     )}
 
@@ -447,13 +475,13 @@ export default function TeacherDashboard() {
                             
                             {/* Mobile Cards View */}
                             <div className="block sm:hidden space-y-4">
-                                {students.length === 0 ? (
+                                {filteredStudents.length === 0 ? (
                                     <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
                                         <GraduationCapIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucun élève pour le moment</p>
                                     </div>
                                 ) : (
-                                    students.map((student) => (
+                                    filteredStudents.map((student) => (
                                         <div key={student.id} className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-lg">
                                             <div className="flex items-center gap-3 mb-3">
                                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold">
@@ -499,13 +527,13 @@ export default function TeacherDashboard() {
                                     <div>Actions</div>
                                 </div>
                                 
-                                {students.length === 0 ? (
+                                {filteredStudents.length === 0 ? (
                                     <div className="p-8 text-center text-slate-500">
                                         <GraduationCapIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucun élève pour le moment</p>
                                     </div>
                                 ) : (
-                                    students.map((student, index) => (
+                                    filteredStudents.map((student, index) => (
                                         <div key={student.id} className="grid grid-cols-4 gap-6 p-6 border-b border-slate-100 items-center hover:bg-white/40 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold">
@@ -556,13 +584,13 @@ export default function TeacherDashboard() {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                                {stories.length === 0 ? (
+                                {filteredStories.length === 0 ? (
                                     <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
                                         <BookOpenIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucune histoire pour le moment</p>
                                     </div>
                                 ) : (
-                                    stories.map((story) => (
+                                    filteredStories.map((story) => (
                                         <div key={story.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
                                             <div className="flex justify-between items-start mb-4">
                                                 <h3 className="text-lg font-semibold text-slate-800 hover:text-indigo-600 transition-colors">{story.title}</h3>
@@ -610,13 +638,13 @@ export default function TeacherDashboard() {
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                                {classes.length === 0 ? (
+                                {filteredClasses.length === 0 ? (
                                     <div className="col-span-full bg-white/60 backdrop-blur-sm rounded-2xl p-8 text-center text-slate-500 border border-white/20">
                                         <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                                         <p className="text-lg">Aucune classe pour le moment</p>
                                     </div>
                                 ) : (
-                                    classes.map((cls) => (
+                                    filteredClasses.map((cls) => (
                                         <div key={cls.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
                                             <div className="flex items-start justify-between mb-4">
                                                 <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
