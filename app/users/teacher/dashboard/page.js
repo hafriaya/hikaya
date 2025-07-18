@@ -468,10 +468,12 @@ export default function TeacherDashboard() {
                                         <span className="text-slate-600 text-sm sm:text-base">+{Math.max(0, students.length - 3)}</span>
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-indigo-500/25 text-sm sm:text-base">
-                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    Ajouter un Élève
-                                </button>
+                                <Link href="/users/teacher/students/add" legacyBehavior>
+                                    <a className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-indigo-500/25 text-sm sm:text-base">
+                                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        Ajouter un Élève
+                                    </a>
+                                </Link>
                             </div>
                             
                             {/* Mobile Cards View */}
@@ -509,9 +511,11 @@ export default function TeacherDashboard() {
                                                         <Eye className="w-4 h-4 mx-auto" />
                                                     </a>
                                                 </Link>
-                                                <button className="flex-1 p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
-                                                    <Edit3 className="w-4 h-4 mx-auto" />
-                                                </button>
+                                                <Link href={`/users/teacher/students/${student.id}/edit`} legacyBehavior>
+                                                    <a className="flex-1 p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center">
+                                                        <Edit3 className="w-4 h-4 mx-auto" />
+                                                    </a>
+                                                </Link>
                                                 <button className="flex-1 p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
                                                     <Trash2 className="w-4 h-4 mx-auto" />
                                                 </button>
@@ -560,9 +564,11 @@ export default function TeacherDashboard() {
                                                         <Eye className="w-4 h-4" />
                                                     </a>
                                                 </Link>
-                                                <button className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
-                                                    <Edit3 className="w-4 h-4" />
-                                                </button>
+                                                <Link href={`/users/teacher/students/${student.id}/edit`} legacyBehavior>
+                                                    <a className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center">
+                                                        <Edit3 className="w-4 h-4" />
+                                                    </a>
+                                                </Link>
                                                 <button className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
