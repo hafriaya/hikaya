@@ -7,6 +7,7 @@ import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
+import Link from 'next/link';
 
 export default function TeacherDashboard() {
     const [students, setStudents] = useState([]);
@@ -503,9 +504,11 @@ export default function TeacherDashboard() {
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button className="flex-1 p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
-                                                    <Eye className="w-4 h-4 mx-auto" />
-                                                </button>
+                                                <Link href={`/users/teacher/students/${student.id}`} legacyBehavior>
+                                                    <a className="flex-1 p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center">
+                                                        <Eye className="w-4 h-4 mx-auto" />
+                                                    </a>
+                                                </Link>
                                                 <button className="flex-1 p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                                     <Edit3 className="w-4 h-4 mx-auto" />
                                                 </button>
@@ -552,9 +555,11 @@ export default function TeacherDashboard() {
   {student.isActive ? "Actif" : "Inactif"}
 </div>
                                             <div className="flex gap-2">
-                                                <button className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
-                                                    <Eye className="w-4 h-4" />
-                                                </button>
+                                                <Link href={`/users/teacher/students/${student.id}`} legacyBehavior>
+                                                    <a className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center">
+                                                        <Eye className="w-4 h-4" />
+                                                    </a>
+                                                </Link>
                                                 <button className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
