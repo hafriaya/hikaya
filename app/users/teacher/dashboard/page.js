@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award, Menu, X } from 'lucide-react';
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, deleteDoc, query, where } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
@@ -187,6 +187,22 @@ export default function TeacherDashboard() {
         { id: 'stories', label: 'Histoires', icon: BookOpenIcon },
         { id: 'classes', label: 'Classes', icon: Users }
     ];
+
+    const handleDeleteStudent = async (studentId) => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) return;
+        try {
+            // Delete all readingHistory for this student
+            const rhQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentId));
+            const rhSnap = await getDocs(rhQuery);
+            await Promise.all(rhSnap.docs.map(docu => deleteDoc(docu.ref)));
+            // Delete the student
+            await deleteDoc(doc(db, "students", studentId));
+            // Refresh students list
+            setStudents(prev => prev.filter(s => s.id !== studentId));
+        } catch (err) {
+            alert("Erreur lors de la suppression : " + err.message);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex flex-col">
@@ -516,7 +532,10 @@ export default function TeacherDashboard() {
                                                         <Edit3 className="w-4 h-4 mx-auto" />
                                                     </a>
                                                 </Link>
-                                                <button className="flex-1 p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
+                                                <button className="flex-1 p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center"
+                                                    onClick={() => handleDeleteStudent(student.id)}
+                                                    title="Supprimer l'élève"
+                                                >
                                                     <Trash2 className="w-4 h-4 mx-auto" />
                                                 </button>
                                             </div>
@@ -569,7 +588,10 @@ export default function TeacherDashboard() {
                                                         <Edit3 className="w-4 h-4" />
                                                     </a>
                                                 </Link>
-                                                <button className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
+                                                <button className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center"
+                                                    onClick={() => handleDeleteStudent(student.id)}
+                                                    title="Supprimer l'élève"
+                                                >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
