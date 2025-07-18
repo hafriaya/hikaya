@@ -203,6 +203,32 @@ export default function TeacherDashboard() {
         }
     };
 
+    const handleDeleteClass = async (classId) => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette classe ? Cette action est irréversible et supprimera tous les élèves associés.")) return;
+        try {
+            // Delete all students in this class
+            const studentsInClass = students.filter(s => s.classId === classId);
+            for (const student of studentsInClass) {
+                // Delete reading history for each student
+                const rhQuery = query(collection(db, "readingHistory"), where("studentId", "==", student.id));
+                const rhSnap = await getDocs(rhQuery);
+                await Promise.all(rhSnap.docs.map(docu => deleteDoc(docu.ref)));
+                
+                // Delete the student
+                await deleteDoc(doc(db, "students", student.id));
+            }
+            
+            // Delete the class
+            await deleteDoc(doc(db, "class", classId));
+            
+            // Update local state
+            setClasses(prev => prev.filter(c => c.id !== classId));
+            setStudents(prev => prev.filter(s => s.classId !== classId));
+        } catch (err) {
+            alert("Erreur lors de la suppression : " + err.message);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex flex-col">
             {/* Top Navigation Bar */}
@@ -328,7 +354,7 @@ export default function TeacherDashboard() {
                             <input
                                 type="text"
                                 placeholder={activeTab === 'students' ? 'Rechercher un élève...' : activeTab === 'stories' ? 'Rechercher une histoire...' : 'Rechercher une classe...'}
-                                className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-black placeholder-slate-400"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                             />
@@ -677,10 +703,12 @@ export default function TeacherDashboard() {
                                         <span className="font-medium">{classes.length}</span> classes configurées
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm sm:text-base">
-                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    Nouvelle Classe
-                                </button>
+                                <Link href="/users/teacher/classes/add" legacyBehavior>
+                                    <a className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-purple-500/25 text-sm sm:text-base">
+                                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        Nouvelle Classe
+                                    </a>
+                                </Link>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -700,17 +728,30 @@ export default function TeacherDashboard() {
                                                     {students.filter(s => s.classId === cls.id).length} élèves
                                                 </div>
                                             </div>
-                                            <h3 className="text-lg font-semibold text-slate-800 hover:text-purple-600 transition-colors">
-                                                {cls.name}
-                                            </h3>
-                                            <p className="text-slate-600">{cls.description || 'Aucune description disponible'}</p>
+                                            <Link href={`/users/teacher/classes/${cls.id}`} legacyBehavior>
+                                                <a className="text-lg font-semibold text-slate-800 hover:text-purple-600 transition-colors block mb-2">
+                                                    {cls.name}
+                                                </a>
+                                            </Link>
+                                            <p className="text-slate-600 mb-4">{cls.description || 'Aucune description disponible'}</p>
                                             <div className="flex gap-2">
-                                                <button className="flex-1 flex items-center justify-center gap-2 bg-purple-100 text-purple-600 py-2 px-4 rounded-xl font-medium text-sm hover:bg-purple-200 transition-colors">
-                                                    <Eye className="w-4 h-4" />
-                                                    Voir détails
-                                                </button>
-                                                <button className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors">
-                                                    <Edit3 className="w-4 h-4" />
+                                                <Link href={`/users/teacher/classes/${cls.id}`} legacyBehavior>
+                                                    <a className="flex-1 flex items-center justify-center gap-2 bg-purple-100 text-purple-600 py-2 px-4 rounded-xl font-medium text-sm hover:bg-purple-200 transition-colors">
+                                                        <Eye className="w-4 h-4" />
+                                                        Voir détails
+                                                    </a>
+                                                </Link>
+                                                <Link href={`/users/teacher/classes/${cls.id}/edit`} legacyBehavior>
+                                                    <a className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors">
+                                                        <Edit3 className="w-4 h-4" />
+                                                    </a>
+                                                </Link>
+                                                <button
+                                                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors"
+                                                    onClick={() => handleDeleteClass(cls.id)}
+                                                    title="Supprimer la classe"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </div>
