@@ -13,7 +13,6 @@ export default function TeacherDashboard() {
     const [students, setStudents] = useState([]);
     const [stories, setStories] = useState([]);
     const [classes, setClasses] = useState([]);
-    const [activities, setActivities] = useState([]); // NEW: activities from Firestore
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [teacher, setTeacher] = useState(null);
@@ -53,10 +52,6 @@ export default function TeacherDashboard() {
             const storiesSnapshot = await getDocs(collection(db, "story"));
             const storiesData = storiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             setStories(storiesData);
-
-            const activitiesSnapshot = await getDocs(collection(db, "activities"));
-            const activitiesData = activitiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-            setActivities(activitiesData);
 
             setLoading(false);
         };
@@ -137,13 +132,7 @@ export default function TeacherDashboard() {
 
     const stats = getStatsData();
 
-    const recentActivities = activities.map(activity => ({
-        type: activity.type,
-        title: activity.title,
-        description: activity.description,
-        time: activity.time,
-        icon: activity.icon
-    }));
+
 
     // Search logic
     const filteredStudents = students.filter(s => s.name?.toLowerCase().includes(search.toLowerCase()));
@@ -199,6 +188,16 @@ export default function TeacherDashboard() {
             await deleteDoc(doc(db, "students", studentId));
             // Refresh students list
             setStudents(prev => prev.filter(s => s.id !== studentId));
+        } catch (err) {
+            alert("Erreur lors de la suppression : " + err.message);
+        }
+    };
+
+    const handleDeleteStory = async (storyId) => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette histoire ? Cette action est irréversible.")) return;
+        try {
+            await deleteDoc(doc(db, "story", storyId));
+            setStories(prev => prev.filter(s => s.id !== storyId));
         } catch (err) {
             alert("Erreur lors de la suppression : " + err.message);
         }
@@ -610,10 +609,12 @@ export default function TeacherDashboard() {
                                         <span className="font-medium">{stories.length}</span> histoires disponibles
                                     </div>
                                 </div>
-                                <button className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25 text-sm sm:text-base">
-                                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    Ajouter une Histoire
-                                </button>
+                                <Link href="/users/teacher/stories/add" legacyBehavior>
+                                    <a className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 shadow-lg shadow-green-500/25 text-sm sm:text-base">
+                                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        Ajouter une Histoire
+                                    </a>
+                                </Link>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -626,7 +627,9 @@ export default function TeacherDashboard() {
                                     filteredStories.map((story) => (
                                         <div key={story.id} className="group bg-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-xl transition-all duration-300">
                                             <div className="flex justify-between items-start mb-4">
-                                                <h3 className="text-lg font-semibold text-slate-800 hover:text-indigo-600 transition-colors">{story.title}</h3>
+                                                <Link href={`/users/teacher/stories/${story.id}`} legacyBehavior>
+                                                    <a className="font-semibold text-indigo-700 hover:underline text-lg">{story.title}</a>
+                                                </Link>
                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                                     story.language === 'Français' ? 'bg-blue-100 text-blue-700' :
                                                     story.language === 'English' ? 'bg-green-100 text-green-700' :
@@ -644,9 +647,19 @@ export default function TeacherDashboard() {
                                                 </span>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-2 px-4 rounded-xl font-medium text-sm hover:bg-slate-200 transition-colors">
-                                                    <Edit3 className="w-4 h-4" />
-                                                    Modifier
+                                                <Link href={`/users/teacher/stories/edit/${story.id}`} legacyBehavior>
+                                                    <a className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-2 px-4 rounded-xl font-medium text-sm hover:bg-slate-200 transition-colors">
+                                                        <Edit3 className="w-4 h-4" />
+                                                        Modifier
+                                                    </a>
+                                                </Link>
+                                                <button
+                                                    className="flex-1 flex items-center justify-center gap-2 bg-red-100 text-red-600 py-2 px-4 rounded-xl font-medium text-sm hover:bg-red-200 transition-colors"
+                                                    onClick={() => handleDeleteStory(story.id)}
+                                                    title="Supprimer l'histoire"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Supprimer
                                                 </button>
                                             </div>
                                         </div>
