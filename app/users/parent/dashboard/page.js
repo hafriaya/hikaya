@@ -183,9 +183,11 @@ export default function ParentDashboard() {
                 <div className="flex items-center justify-between px-4 py-3">
                     {/* Logo */}
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl shadow-lg">
-                            H
-                        </div>
+                        <img 
+                            src="/logo.png" 
+                            alt="Hikaya Logo" 
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl shadow-lg"
+                        />
                         <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Hikaya</span>
                     </div>
 

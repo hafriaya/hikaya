@@ -57,7 +57,18 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-pink-100">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center">
-        <h2 className="text-3xl font-bold mb-6 text-pink-600">Se connecter</h2>
+        {/* Logo */}
+        <div className="mb-6 flex flex-col items-center">
+          <img 
+            src="/logo.png" 
+            alt="Hikaya Logo" 
+            className="w-16 h-16 mb-4"
+          />
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Hikaya</h1>
+          <p className="text-sm text-slate-600 text-center">Suivi de Lecture pour les Élèves de Préscolaire</p>
+        </div>
+        
+        <h2 className="text-2xl font-bold mb-6 text-pink-600">Se connecter</h2>
         <form onSubmit={handleEmailLogin} className="w-full flex flex-col gap-4 mb-4">
           <input
             type="email"
