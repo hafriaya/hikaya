@@ -96,7 +96,7 @@ export default function EditStudentPage() {
                 value={name} 
                 onChange={e => setName(e.target.value)} 
                 required 
-                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-indigo-400 focus:outline-none text-black placeholder-black"
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-indigo-400 focus:outline-none text-black placeholder-slate-400"
                 placeholder="Entrez le nom de l'élève"
               />
             </div>
@@ -116,7 +116,7 @@ export default function EditStudentPage() {
                 required 
                 min="3" 
                 max="6" 
-                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-indigo-400 focus:outline-none text-black placeholder-black"
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-indigo-400 focus:outline-none text-black placeholder-slate-400"
                 placeholder="Âge de l'élève"
               />
             </div>
@@ -135,7 +135,7 @@ export default function EditStudentPage() {
                 required 
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-indigo-400 focus:outline-none text-black bg-white"
               >
-                <option value="" className="text-black">Sélectionner une classe</option>
+                <option value="" className="text-slate-400">Sélectionner une classe</option>
                 {classes.map(cls => (
                   <option key={cls.id} value={cls.id} className="text-black">{cls.name}</option>
                 ))}

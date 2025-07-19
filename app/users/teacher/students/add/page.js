@@ -103,7 +103,7 @@ export default function AddStudentPage() {
                 value={name} 
                 onChange={e => setName(e.target.value)} 
                 required 
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                 placeholder="Entrez le nom complet de l'élève"
               />
             </div>
@@ -123,7 +123,7 @@ export default function AddStudentPage() {
                 required 
                 min="3" 
                 max="6" 
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                 placeholder="Âge de l'élève (3-6 ans)"
               />
               <p className="text-xs text-slate-500 mt-1">Âge recommandé: 3 à 6 ans</p>
@@ -143,7 +143,7 @@ export default function AddStudentPage() {
                 required 
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black"
               >
-                <option value="" className="text-black">Sélectionner une classe</option>
+                <option value="" className="text-slate-400">Sélectionner une classe</option>
                 {classes.map(cls => (
                   <option key={cls.id} value={cls.id} className="text-black">{cls.name}</option>
                 ))}

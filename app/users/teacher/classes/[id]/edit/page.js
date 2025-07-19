@@ -142,7 +142,7 @@ export default function EditClassPage() {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                                 placeholder="Ex: Classe A, Petite Section, etc."
                             />
                         </div>
@@ -159,7 +159,7 @@ export default function EditClassPage() {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={3}
-                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                                 placeholder="Description optionnelle de la classe..."
                             />
                         </div>
@@ -177,7 +177,7 @@ export default function EditClassPage() {
                                 onChange={(e) => setLevel(e.target.value)}
                                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black"
                             >
-                                <option value="" className="text-black">Sélectionner un niveau</option>
+                                <option value="" className="text-slate-400">Sélectionner un niveau</option>
                                 <option value="Petite Section" className="text-black">Petite Section</option>
                                 <option value="Moyenne Section" className="text-black">Moyenne Section</option>
                                 <option value="Grande Section" className="text-black">Grande Section</option>

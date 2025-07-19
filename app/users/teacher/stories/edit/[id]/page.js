@@ -190,7 +190,7 @@ export default function EditStoryPage() {
                 required 
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black"
               >
-                <option value="" className="text-black">Sélectionner une langue</option>
+                <option value="" className="text-slate-400">Sélectionner une langue</option>
                 {LANGUAGES.map(lang => (
                   <option key={lang} value={lang} className="text-black">{lang}</option>
                 ))}
@@ -230,7 +230,7 @@ export default function EditStoryPage() {
                 ref={fileInputRef}
                 className="w-full px-4 py-2 rounded-2xl border border-slate-200 bg-white/80 text-black"
               />
-              {(imagePreview || currentImage) && (
+              {(imagePreview || (currentImage && currentImage.trim() !== '')) && (
                 <div className="mt-2 flex items-center gap-4">
                   <img src={imagePreview || currentImage} alt="Aperçu" className="w-24 h-24 object-cover rounded-xl border border-slate-200" />
                   {(imagePreview || imageFile) && (

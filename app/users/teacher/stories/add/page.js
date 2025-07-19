@@ -134,7 +134,7 @@ export default function AddStoryPage() {
                 value={title} 
                 onChange={e => setTitle(e.target.value)} 
                 required 
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                 placeholder="Titre de l'histoire"
               />
             </div>
@@ -151,7 +151,7 @@ export default function AddStoryPage() {
                 onChange={e => setSummary(e.target.value)} 
                 required 
                 rows={3}
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                 placeholder="Résumé de l'histoire"
               />
             </div>
@@ -167,7 +167,7 @@ export default function AddStoryPage() {
                 type="text" 
                 value={category} 
                 onChange={e => setCategory(e.target.value)} 
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 placeholder-black text-black"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black placeholder-slate-400"
                 placeholder="Catégorie (ex: Conte, Fable...)"
               />
             </div>
@@ -185,7 +185,7 @@ export default function AddStoryPage() {
                 required 
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 focus:outline-none transition-all duration-200 bg-white/80 text-black"
               >
-                <option value="" className="text-black">Sélectionner une langue</option>
+                <option value="" className="text-slate-400">Sélectionner une langue</option>
                 {LANGUAGES.map(lang => (
                   <option key={lang} value={lang} className="text-black">{lang}</option>
                 ))}
