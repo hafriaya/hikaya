@@ -15,10 +15,17 @@ export default function LoginPage() {
   const checkTeacherAndRedirect = async (user) => {
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists() && userDoc.data().role === "teacher") {
-        router.push("users/teacher/dashboard");
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === "teacher") {
+          router.push("users/teacher/dashboard");
+        } else if (userData.role === "parent") {
+          router.push("users/parent/dashboard");
+        } else {
+          setError("Rôle utilisateur non reconnu.");
+        }
       } else {
-        setError("Vous n'avez pas le rôle enseignant.");
+        setError("Compte utilisateur non trouvé.");
       }
     } catch (err) {
       setError("Erreur lors de la vérification du rôle utilisateur.");
