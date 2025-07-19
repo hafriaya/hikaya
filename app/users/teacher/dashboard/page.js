@@ -372,7 +372,7 @@ export default function TeacherDashboard() {
                                 <div className="absolute right-0 top-12 z-50 bg-white rounded-xl shadow-lg border border-slate-100 min-w-[160px] py-2 flex flex-col text-left">
                                     <button
                                         className="px-4 py-2 hover:bg-slate-100 text-slate-700 text-sm text-left"
-                                        onClick={() => { setShowProfileMenu(false); /* TODO: Profile page navigation */ }}
+                                        onClick={() => { setShowProfileMenu(false); router.push('/users/teacher/profile'); }}
                                     >
                                         Profil
                                     </button>
