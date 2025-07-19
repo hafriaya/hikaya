@@ -230,7 +230,7 @@ export default function EditStoryPage() {
                 ref={fileInputRef}
                 className="w-full px-4 py-2 rounded-2xl border border-slate-200 bg-white/80 text-black"
               />
-              {(imagePreview || (currentImage && currentImage.trim() !== '')) && (
+              {(imagePreview || (currentImage && typeof currentImage === 'string' && currentImage.startsWith('http'))) && (
                 <div className="mt-2 flex items-center gap-4">
                   <img src={imagePreview || currentImage} alt="Aperçu" className="w-24 h-24 object-cover rounded-xl border border-slate-200" />
                   {(imagePreview || imageFile) && (
