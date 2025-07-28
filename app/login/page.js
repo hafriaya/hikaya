@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/src/lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,7 +17,38 @@ export default function LoginPage() {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        if (userData.role === "teacher") {
+        if (userData.role === "admin") {
+          router.push("users/admin/dashboard");
+        } else if (userData.role === "teacher") {
+          router.push("users/teacher/dashboard");
+        } else if (userData.role === "parent") {
+          router.push("users/parent/dashboard");
+        } else if (userData.role === "student") {
+          router.push("users/student/dashboard");
+        } else {
+          setError("Rôle utilisateur non reconnu.");
+        }
+      } else {
+        setError("Compte utilisateur non trouvé.");
+      }
+    } catch (err) {
+      setError("Erreur lors de la vérification du rôle utilisateur.");
+    }
+  };
+
+  const checkUserByEmail = async (email) => {
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        
+        if (userData.role === "admin") {
+          router.push("users/admin/dashboard");
+        } else if (userData.role === "teacher") {
           router.push("users/teacher/dashboard");
         } else if (userData.role === "parent") {
           router.push("users/parent/dashboard");
@@ -50,7 +81,8 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      await checkTeacherAndRedirect(result.user);
+      // Check if user exists in Firestore by email
+      await checkUserByEmail(result.user.email);
     } catch (err) {
       setError(err.message);
     }
