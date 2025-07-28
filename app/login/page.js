@@ -21,6 +21,8 @@ export default function LoginPage() {
           router.push("users/teacher/dashboard");
         } else if (userData.role === "parent") {
           router.push("users/parent/dashboard");
+        } else if (userData.role === "student") {
+          router.push("users/student/dashboard");
         } else {
           setError("Rôle utilisateur non reconnu.");
         }
