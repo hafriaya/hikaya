@@ -72,7 +72,7 @@
 
 ### 1. Cloner le Repository
 ```bash
-git clone https://github.com/votre-username/hikaya.git
+git clone <repository-url>
 cd hikaya
 ```
 
@@ -184,8 +184,8 @@ hikaya/
 ### Collections Firestore
 - **users** : Informations des utilisateurs
 - **students** : Données des élèves
-- **stories** : Histoires et métadonnées
-- **classes** : Classes et niveaux
+- **story** : Histoires et métadonnées
+- **class** : Classes et niveaux
 - **readingHistory** : Historique de lecture
 
 ## 🎨 Design et UX
@@ -224,18 +224,6 @@ Configurez les variables d'environnement sur votre plateforme de déploiement.
 ## 📄 Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 👥 Équipe
-
-- **Développeur** : [Votre Nom]
-- **Design** : Interface kid-friendly et responsive
-- **Architecture** : Next.js + Firebase
-
-## 📞 Support
-
-Pour toute question ou problème :
-- **Issues** : [GitHub Issues](https://github.com/votre-username/hikaya/issues)
-- **Email** : [votre-email@example.com]
 
 ---
 
