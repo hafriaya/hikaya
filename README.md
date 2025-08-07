@@ -104,24 +104,6 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=votre_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=votre_app_id
 ```
 
-#### Configurer Firebase Storage CORS
-Créez un fichier `cors.json` :
-```json
-[
-  {
-    "origin": ["*"],
-    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "x-goog-meta-*"]
-  }
-]
-```
-
-Puis exécutez :
-```bash
-gsutil cors set cors.json gs://votre_bucket_name
-```
-
 ### 4. Initialiser Firebase
 ```bash
 npm install -g firebase-tools
