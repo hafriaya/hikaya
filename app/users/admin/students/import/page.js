@@ -127,48 +127,31 @@ export default function ImportStudents() {
       // Calculate age from birth date
       let age = null;
       const birthDateField = student['date de naissance'] || student['date_de_naissance'] || student['birthdate'];
-      
       if (birthDateField) {
-        const dateStr = birthDateField.toString().trim();
         let birthDate = null;
-        
-        // Try different date formats
-        if (dateStr.includes('/')) {
-          // DD/MM/YYYY or MM/DD/YYYY
-          const parts = dateStr.split('/');
-          if (parts.length === 3) {
-            // Assume DD/MM/YYYY format (European standard)
-            const [day, month, year] = parts;
-            birthDate = new Date(year, month - 1, day);
-          }
-        } else if (dateStr.includes('-')) {
-          // YYYY-MM-DD or DD-MM-YYYY
-          const parts = dateStr.split('-');
-          if (parts.length === 3) {
-            if (parts[0].length === 4) {
-              // YYYY-MM-DD
-              birthDate = new Date(dateStr);
-            } else {
-              // DD-MM-YYYY
-              const [day, month, year] = parts;
-              birthDate = new Date(year, month - 1, day);
-            }
-          }
+        const dateStr = birthDateField.toString().trim();
+
+        // Check for DD/MM/YYYY
+        const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
+        if (match) {
+          const [_, day, month, year] = match;
+          birthDate = new Date(`${year}-${month}-${day}`);
+        } else if (!isNaN(dateStr) && Number(dateStr) > 10000) {
+          // Excel date serial number
+          // Excel's epoch starts at 1899-12-30
+          birthDate = new Date(Date.UTC(1899, 11, 30) + Number(dateStr) * 24 * 60 * 60 * 1000);
         } else {
-          // Try parsing as-is
+          // Try native Date parsing
           birthDate = new Date(dateStr);
         }
 
-        // Calculate age if date is valid
         if (birthDate && !isNaN(birthDate.getTime())) {
           const today = new Date();
           let calculatedAge = today.getFullYear() - birthDate.getFullYear();
           const monthDiff = today.getMonth() - birthDate.getMonth();
-          
           if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
             calculatedAge--;
           }
-          
           if (calculatedAge >= 0 && calculatedAge <= 100) {
             age = calculatedAge;
           }
@@ -525,32 +508,6 @@ export default function ImportStudents() {
               >
                 {importing ? 'Import en cours...' : `Importer ${results.success} étudiant(s)`}
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* Import Results */}
-        {results.details.length > 0 && !importing && (
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Résultats de l'import</h2>
-            <div className="space-y-2">
-              {results.details.map((result, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-2 p-2 rounded ${
-                    result.status === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                  }`}
-                >
-                  {result.status === 'success' ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4" />
-                  )}
-                  <span className="text-sm">
-                    {result.name}: {result.message}
-                  </span>
-                </div>
-              ))}
             </div>
           </div>
         )}
