@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
@@ -20,8 +20,8 @@ export default function ImportStudents() {
   const fileInputRef = useRef(null);
   const router = useRouter();
 
-  // Load classes and teachers on component mount
-  useState(() => {
+  // Load classes and teachers on component mount - Fixed useEffect instead of useState
+  useEffect(() => {
     const loadData = async () => {
       try {
         // Load classes
@@ -58,25 +58,52 @@ export default function ImportStudents() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
+        
         if (jsonData.length < 2) {
           alert('Le fichier Excel doit contenir au moins une ligne d\'en-tête et une ligne de données');
           return;
         }
 
-        const headers = jsonData[0].map(h => h?.toString().toLowerCase().trim());
-        const dataRows = jsonData.slice(1);
+        // Find the header row (skip empty rows)
+        let headerRowIndex = -1;
+        for (let i = 0; i < jsonData.length; i++) {
+          if (jsonData[i] && jsonData[i].length > 0) {
+            // Check if this row contains expected headers
+            const row = jsonData[i].map(cell => cell?.toString().toLowerCase().trim());
+            if (row.includes('nom') || row.includes('prénom') || row.includes('name')) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+        }
 
-        const parsedData = dataRows.map(row => {
+        if (headerRowIndex === -1) {
+          alert('Impossible de trouver la ligne d\'en-tête dans le fichier');
+          return;
+        }
+
+        const headers = jsonData[headerRowIndex].map(h => h?.toString().toLowerCase().trim());
+        const dataRows = jsonData.slice(headerRowIndex + 1).filter(row => row && row.length > 0);
+        
+        if (dataRows.length === 0) {
+          alert('Aucune donnée trouvée après la ligne d\'en-tête');
+          return;
+        }
+
+        const parsedData = dataRows.map((row, index) => {
           const student = {};
-          headers.forEach((header, index) => {
-            student[header] = row[index]?.toString().trim() || '';
+          headers.forEach((header, colIndex) => {
+            if (row[colIndex] !== undefined && row[colIndex] !== null) {
+              student[header] = row[colIndex].toString().trim();
+            }
           });
+          student.rowNumber = headerRowIndex + index + 2; // +2 for 1-based indexing and header row
           return student;
         });
 
         processData(parsedData);
       } catch (error) {
+        console.error('Excel read error:', error);
         alert('Erreur lors de la lecture du fichier Excel: ' + error.message);
       }
     };
@@ -84,36 +111,93 @@ export default function ImportStudents() {
   };
 
   const processData = (data) => {
-    const validatedStudents = data.map((student, index) => {
-      // Combine Nom and Prenom
-      const name = `${student['nom'] || ''} ${student['prenom'] || ''}`.trim();
+    const validatedStudents = data.map((student) => {
+      // Extract name - handle both French and English headers
+      let name = '';
+      if (student['nom'] && student['prénom']) {
+        name = `${student['prénom']} ${student['nom']}`.replace(/\s+/g, ' ').trim();
+      } else if (student['nom']) {
+        name = student['nom'].trim();
+      } else if (student['name']) {
+        name = student['name'].trim();
+      } else if (student['prénom']) {
+        name = student['prénom'].trim();
+      }
 
-      // Calculate age from Date de naissance
-      let age = '';
-      if (student['date de naissance']) {
-        const birthDate = new Date(student['date de naissance']);
-        const today = new Date();
-        age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
+      // Calculate age from birth date
+      let age = null;
+      const birthDateField = student['date de naissance'] || student['date_de_naissance'] || student['birthdate'];
+      
+      if (birthDateField) {
+        const dateStr = birthDateField.toString().trim();
+        let birthDate = null;
+        
+        // Try different date formats
+        if (dateStr.includes('/')) {
+          // DD/MM/YYYY or MM/DD/YYYY
+          const parts = dateStr.split('/');
+          if (parts.length === 3) {
+            // Assume DD/MM/YYYY format (European standard)
+            const [day, month, year] = parts;
+            birthDate = new Date(year, month - 1, day);
+          }
+        } else if (dateStr.includes('-')) {
+          // YYYY-MM-DD or DD-MM-YYYY
+          const parts = dateStr.split('-');
+          if (parts.length === 3) {
+            if (parts[0].length === 4) {
+              // YYYY-MM-DD
+              birthDate = new Date(dateStr);
+            } else {
+              // DD-MM-YYYY
+              const [day, month, year] = parts;
+              birthDate = new Date(year, month - 1, day);
+            }
+          }
+        } else {
+          // Try parsing as-is
+          birthDate = new Date(dateStr);
+        }
+
+        // Calculate age if date is valid
+        if (birthDate && !isNaN(birthDate.getTime())) {
+          const today = new Date();
+          let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            calculatedAge--;
+          }
+          
+          if (calculatedAge >= 0 && calculatedAge <= 100) {
+            age = calculatedAge;
+          }
+        }
+      }
+
+      // If no birth date, try to get age directly
+      if (age === null && (student['age'] || student['âge'])) {
+        const ageStr = (student['age'] || student['âge']).toString().trim();
+        const parsedAge = parseInt(ageStr);
+        if (!isNaN(parsedAge) && parsedAge > 0 && parsedAge <= 100) {
+          age = parsedAge;
         }
       }
 
       const mappedStudent = {
         name,
         age,
-        classid: selectedClass, // from dropdown
-        teacherId: selectedTeacher, // from dropdown
-        isactive: true
+        classId: selectedClass,
+        teacherId: selectedTeacher,
+        isActive: true,
+        rowNumber: student.rowNumber
       };
 
       const errors = validateStudent(mappedStudent);
       return {
         ...mappedStudent,
         errors,
-        isValid: errors.length === 0,
-        rowNumber: index + 2
+        isValid: errors.length === 0
       };
     });
 
@@ -127,28 +211,25 @@ export default function ImportStudents() {
 
   const validateStudent = (student) => {
     const errors = [];
-
-    if (!student.name || student.name.trim().length < 2) {
-      errors.push('Nom invalide');
+    
+    if (!student.name || student.name.length < 2) {
+      errors.push('Nom invalide (minimum 2 caractères)');
     }
-
-    if (!student.age || isNaN(student.age) || student.age < 3 || student.age > 20) {
+    
+    if (student.age === null || student.age === undefined || isNaN(student.age)) {
+      errors.push('Âge manquant ou invalide');
+    } else if (student.age < 3 || student.age > 20) {
       errors.push('Âge doit être entre 3 et 20 ans');
     }
-
+    
     if (!selectedClass) {
       errors.push('Classe requise');
-    } else {
-      const classExists = classes.find(c => c.id === selectedClass);
-      if (!classExists) {
-        errors.push('Classe non trouvée');
-      }
     }
-
+    
     if (!selectedTeacher) {
       errors.push('Enseignant requis');
     }
-
+    
     return errors;
   };
 
@@ -183,8 +264,8 @@ export default function ImportStudents() {
         const studentData = {
           name: student.name.trim(),
           age: parseInt(student.age),
-          classId: student.classid,
-          isActive: student.isactive === 'true' || student.isactive === '1' || student.isactive === 'oui' || student.isactive === true,
+          classId: student.classId,
+          isActive: student.isActive,
           teacherId: selectedTeacher,
           booksRead: 0,
           createdAt: new Date()
@@ -221,30 +302,36 @@ export default function ImportStudents() {
   };
 
   const downloadTemplate = () => {
-    // Create sample data
+    // Create sample data with French headers matching your Excel format
     const sampleData = [
-      ['name', 'age', 'classid', 'isactive'],
-      ['Ahmed Ben Ali', 5, 'CLASS_ID_HERE', true],
-      ['Fatima Zahra', 4, 'CLASS_ID_HERE', true],
-      ['Mohammed Hassan', 6, 'CLASS_ID_HERE', true],
-      ['Amina El Khadra', 3, 'CLASS_ID_HERE', true],
-      ['Youssef Ben Salem', 5, 'CLASS_ID_HERE', true],
-      ['Layla Ben Amor', 4, 'CLASS_ID_HERE', true],
-      ['Karim Ben Mansour', 6, 'CLASS_ID_HERE', true],
-      ['Nour Ben Hamed', 3, 'CLASS_ID_HERE', true],
-      ['Sara Ben Youssef', 5, 'CLASS_ID_HERE', true],
-      ['Adam Ben Ali', 4, 'CLASS_ID_HERE', true]
+      ['N.O', 'Code', 'Nom', 'Prénom', 'Genre', 'Date de naissance', 'Lieu naissance'],
+      [1, 'ST001', 'Ben Ali', 'Ahmed', 'M', '15/06/2019', 'Casablanca'],
+      [2, 'ST002', 'El Mansouri', 'Fatima', 'F', '23/04/2020', 'Rabat'],
+      [3, 'ST003', 'Benali', 'Mohammed', 'M', '12/09/2018', 'Fes'],
+      [4, 'ST004', 'Zahra', 'Amina', 'F', '30/11/2021', 'Marrakech'],
+      [5, 'ST005', 'Hassan', 'Youssef', 'M', '07/02/2019', 'Tanger']
     ];
 
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(sampleData);
 
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 8 },  // N.O
+      { wch: 12 }, // Code
+      { wch: 15 }, // Nom
+      { wch: 15 }, // Prénom
+      { wch: 8 },  // Genre
+      { wch: 18 }, // Date de naissance
+      { wch: 15 }  // Lieu naissance
+    ];
+
     // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Étudiants');
+    XLSX.utils.book_append_sheet(wb, ws, 'Liste des élèves');
 
     // Generate and download file
-    XLSX.writeFile(wb, 'template_etudiants.xlsx');
+    XLSX.writeFile(wb, 'modele_liste_eleves.xlsx');
   };
 
   return (
@@ -317,7 +404,7 @@ export default function ImportStudents() {
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <h3 className="font-medium text-blue-800 mb-2">📋 Format requis pour Excel</h3>
             <p className="text-blue-700 text-sm mb-3">
-              Le fichier doit contenir les colonnes: <code className="bg-blue-100 px-2 py-1 rounded">name,age,classid,isactive</code>
+              Le fichier doit contenir les colonnes: <code className="bg-blue-100 px-2 py-1 rounded">Nom, Prénom, Date de naissance</code> (format DD/MM/YYYY)
             </p>
             <button
               onClick={downloadTemplate}
@@ -391,25 +478,25 @@ export default function ImportStudents() {
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Nom</label>
                           <div className="px-3 py-2 bg-slate-100 rounded-lg text-slate-800">
-                            {student.name}
+                            {student.name || 'Non défini'}
                           </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Âge</label>
                           <div className="px-3 py-2 bg-slate-100 rounded-lg text-slate-800">
-                            {student.age}
+                            {student.age !== null ? `${student.age} ans` : 'Non défini'}
                           </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Classe</label>
                           <div className="px-3 py-2 bg-slate-100 rounded-lg text-slate-800">
-                            {classes.find(c => c.id === student.classid)?.name || student.classid}
+                            {classes.find(c => c.id === student.classId)?.name || 'Sélectionner une classe'}
                           </div>
                         </div>
                       </div>
                       {student.errors.length > 0 && (
                         <div className="mt-2 text-red-600 text-sm">
-                          {student.errors.join(', ')}
+                          Ligne {student.rowNumber}: {student.errors.join(', ')}
                         </div>
                       )}
                     </div>
@@ -429,9 +516,9 @@ export default function ImportStudents() {
               </div>
               <button
                 onClick={importStudents}
-                disabled={importing || results.success === 0 || !selectedTeacher}
+                disabled={importing || results.success === 0 || !selectedTeacher || !selectedClass}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                  importing || results.success === 0 || !selectedTeacher
+                  importing || results.success === 0 || !selectedTeacher || !selectedClass
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                     : 'bg-green-500 text-white hover:bg-green-600'
                 }`}
