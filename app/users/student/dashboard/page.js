@@ -6,6 +6,15 @@ import { collection, getDocs, doc, getDoc, query, where, addDoc, Timestamp } fro
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { BookOpen, Star, Heart, CheckCircle, Play, Volume2, Smile, ArrowLeft, Sparkles, Home, Grid, Info, Menu, Search, Bell, Filter, Trophy, Gift, Zap } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { pdfjs } from 'react-pdf';
+
+// Set workerSrc to CDN
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+// Dynamically import react-pdf components (client-side only)
+const PDFDocument = dynamic(() => import('react-pdf').then(mod => mod.Document), { ssr: false });
+const PDFPage = dynamic(() => import('react-pdf').then(mod => mod.Page), { ssr: false });
 
 export default function StudentInterface() {
   const [student, setStudent] = useState(null);
@@ -16,6 +25,7 @@ export default function StudentInterface() {
   const [celebrationMode, setCelebrationMode] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [pdfOpenStory, setPdfOpenStory] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -172,9 +182,7 @@ export default function StudentInterface() {
           <div className="flex items-center justify-between">
             {/* Left side - Menu and Logo */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <button className="w-10 h-10 sm:w-12 sm:h-12 bg-white/90 backdrop-blur rounded-2xl flex items-center justify-center hover:bg-white hover:scale-110 transition-all duration-300 shadow-lg">
-                <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-              </button>
+              
               <div className="text-xl sm:text-3xl font-black text-white drop-shadow-lg">
                 🌈 Hikaya 📚
               </div>
@@ -406,12 +414,43 @@ export default function StudentInterface() {
                     )}
                   </div>
                   </a>
+                  <button
+                    className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-600 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl hover:shadow-xl transition-all hover:scale-105 border-2 border-white"
+                    onClick={e => {
+                      e.preventDefault();
+                      setPdfOpenStory(story);
+                    }}
+                  >
+                    📖 Lire le PDF
+                  </button>
                 </div>
               );
             })
           )}
         </div>
       </div>
+
+      {/* PDF Viewer */}
+      {typeof window !== "undefined" && pdfOpenStory && pdfOpenStory.pdfUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-4 max-w-2xl w-full relative">
+            <button
+              className="absolute top-2 right-2 px-3 py-1 bg-pink-500 text-white rounded"
+              onClick={() => setPdfOpenStory(null)}
+            >
+              Fermer
+            </button>
+            <h3 className="text-lg font-bold mb-4">{pdfOpenStory.title}</h3>
+            <iframe
+              src={pdfOpenStory.pdfUrl}
+              width="100%"
+              height="600px"
+              style={{ border: "none" }}
+              title={pdfOpenStory.title}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Fun Bottom Wave */}
       <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-24 bg-gradient-to-t from-purple-400 via-pink-300 to-transparent"></div>
