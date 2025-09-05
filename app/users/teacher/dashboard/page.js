@@ -30,36 +30,41 @@ export default function TeacherDashboard() {
         const auth = getAuth();
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists()) {
-                    setTeacher(userDoc.data());
-                } else {
-                    setTeacher({ email: user.email });
+                try {
+                    // Fetch teacher profile
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists()) {
+                        setTeacher(userDoc.data());
+
+                        // Fetch classes for this teacher
+                        const classesQ = query(collection(db, "class"), where("teacherId", "==", user.uid));
+                        const classesSnap = await getDocs(classesQ);
+                        setClasses(classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+                        // Fetch students for this teacher
+                        const studentsQ = query(collection(db, "students"), where("teacherId", "==", user.uid));
+                        const studentsSnap = await getDocs(studentsQ);
+                        setStudents(studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+                        // Fetch stories for this teacher
+                        const storiesQ = query(collection(db, "story"), where("teacherId", "==", user.uid));
+                        const storiesSnap = await getDocs(storiesQ);
+                        setStories(storiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+                    } else {
+                        setTeacher(null);
+                    }
+                } catch (err) {
+                    console.error("Error fetching teacher dashboard data:", err);
+                } finally {
+                    setLoading(false);
                 }
             } else {
                 setTeacher(null);
+                setLoading(false);
             }
         });
         return () => unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            const classesSnapshot = await getDocs(collection(db, "class"));
-            const classesData = classesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-            setClasses(classesData);
-
-            const studentsSnapshot = await getDocs(collection(db, "students"));
-            const studentsData = studentsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-            setStudents(studentsData);
-
-            const storiesSnapshot = await getDocs(collection(db, "story"));
-            const storiesData = storiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-            setStories(storiesData);
-
-            setLoading(false);
-        };
-        fetchData();
     }, []);
 
     // --- Dynamic Stats ---
@@ -706,12 +711,12 @@ export default function TeacherDashboard() {
 </div>
                                             <div className="flex gap-2">
                                                 <Link href={`/users/teacher/students/${student.id}`} legacyBehavior>
-                                                    <a className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center">
+                                                    <a className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
                                                         <Eye className="w-4 h-4" />
                                                     </a>
                                                 </Link>
                                                 <Link href={`/users/teacher/students/${student.id}/edit`} legacyBehavior>
-                                                    <a className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center">
+                                                    <a className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                                         <Edit3 className="w-4 h-4" />
                                                     </a>
                                                 </Link>
