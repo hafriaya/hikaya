@@ -433,21 +433,27 @@ export default function StudentInterface() {
       {/* PDF Viewer */}
       {typeof window !== "undefined" && pdfOpenStory && pdfOpenStory.pdfUrl && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-4 max-w-2xl w-full relative">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-3xl w-full relative flex flex-col items-center">
             <button
-              className="absolute top-2 right-2 px-3 py-1 bg-pink-500 text-white rounded"
+              className="absolute top-4 right-4 px-4 py-2 bg-pink-500 text-white rounded-lg font-bold shadow hover:bg-pink-600 transition"
               onClick={() => setPdfOpenStory(null)}
             >
               Fermer
             </button>
-            <h3 className="text-lg font-bold mb-4">{pdfOpenStory.title}</h3>
-            <iframe
-              src={pdfOpenStory.pdfUrl}
-              width="100%"
-              height="600px"
-              style={{ border: "none" }}
-              title={pdfOpenStory.title}
-            />
+            <h3 className="text-2xl font-extrabold mb-6 text-black text-center">{pdfOpenStory.title}</h3>
+            <div className="w-full h-[70vh] rounded-lg overflow-hidden border-2 border-gray-200 shadow-lg">
+              <iframe
+                src={pdfOpenStory.pdfUrl}
+                width="100%"
+                height="100%"
+                style={{
+                  border: "none",
+                  borderRadius: "0.75rem",
+                  background: "#f9fafb"
+                }}
+                title={pdfOpenStory.title}
+              />
+            </div>
           </div>
         </div>
       )}
