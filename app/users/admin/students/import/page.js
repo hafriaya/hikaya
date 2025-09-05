@@ -383,21 +383,6 @@ export default function ImportStudents() {
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Import depuis un fichier Excel</h2>
           
-          {/* Template Download */}
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-medium text-blue-800 mb-2">📋 Format requis pour Excel</h3>
-            <p className="text-blue-700 text-sm mb-3">
-              Le fichier doit contenir les colonnes: <code className="bg-blue-100 px-2 py-1 rounded">Nom, Prénom, Date de naissance</code> (format DD/MM/YYYY)
-            </p>
-            <button
-              onClick={downloadTemplate}
-              className="inline-flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Télécharger le modèle Excel
-            </button>
-          </div>
-
           {/* File Upload */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
