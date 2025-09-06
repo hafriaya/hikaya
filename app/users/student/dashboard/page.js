@@ -294,7 +294,7 @@ export default function StudentInterface() {
         console.log('Story ID:', currentStoryId);
 
         // Find the student document that matches this user
-        const studentQuery = query(collection(db, "students"), where("studentId", "==", currentUser.uid));
+        const studentQuery = query(collection(db, "students"), where("userId", "==", currentUser.uid));
         const studentSnapshot = await getDocs(studentQuery);
         
         if (studentSnapshot.empty) {
