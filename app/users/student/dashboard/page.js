@@ -33,6 +33,7 @@ export default function StudentInterface() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
   const [currentStoryForQuiz, setCurrentStoryForQuiz] = useState(null);
+  const [isPassingScore, setIsPassingScore] = useState(false);
   
   const router = useRouter();
 
@@ -82,9 +83,21 @@ export default function StudentInterface() {
     }
   };
 
+  const fetchQuestionsForStory = async (storyId) => {
+    try {
+      // Fetch questions from the questions collection for this specific story
+      const questionsQuery = query(collection(db, "questions"), where("storyId", "==", storyId));
+      const questionsSnapshot = await getDocs(questionsQuery);
+      const questionsData = questionsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return questionsData;
+    } catch (err) {
+      console.error("Error fetching questions:", err);
+      return [];
+    }
+  };
+
   const markStoryAsRead = async (storyId) => {
     console.log('markStoryAsRead called with storyId:', storyId);
-    console.log('student object:', student);
     
     // Get the current authenticated user
     const auth = getAuth();
@@ -110,13 +123,43 @@ export default function StudentInterface() {
         return;
       }
 
+      // Find the story
+      const story = stories.find(s => s.id === storyId);
+      if (!story) {
+        alert("Histoire non trouvée !");
+        return;
+      }
+
+      // Fetch questions from the questions collection
+      const questions = await fetchQuestionsForStory(storyId);
+      
+      if (questions && questions.length > 0) {
+        // Show quiz first
+        setCurrentStoryForQuiz(story);
+        setCurrentQuestions(questions);
+        setUserAnswers({});
+        setQuizSubmitted(false);
+        setQuizScore(0);
+        setIsPassingScore(false);
+        setShowQuiz(true);
+      } else {
+        // No questions available, mark as read directly
+        await addReadingRecord(currentUser.uid, storyId);
+        alert("Bravo ! Tu as marqué cette histoire comme lue ! 🌟");
+      }
+    } catch (err) {
+      console.error("Error in markStoryAsRead:", err);
+      alert(`Oups ! Il y a eu un problème: ${err.message}. Essaie encore !`);
+    }
+  };
+
+  const addReadingRecord = async (studentId, storyId) => {
+    try {
       console.log('Adding reading record to Firestore...');
-      console.log('Current user UID:', currentUser.uid);
-      console.log('Story ID:', storyId);
       
       // Add reading record using the authenticated user's UID
       const docRef = await addDoc(collection(db, "readingHistory"), {
-        studentId: currentUser.uid,
+        studentId: studentId,
         storyId: storyId,
         createdAt: Timestamp.now(),
         completed: true
@@ -126,41 +169,14 @@ export default function StudentInterface() {
 
       // Refresh reading history
       console.log('Refreshing student data...');
-      await fetchStudentData(currentUser.uid);
-      
-      // Find the story to check for questions
-      const story = stories.find(s => s.id === storyId);
+      await fetchStudentData(studentId);
       
       // Trigger celebration
       setCelebrationMode(true);
       setTimeout(() => setCelebrationMode(false), 3000);
-      
-      // If story has questions, show quiz instead of success message
-      if (story && story.questions && story.questions.length > 0) {
-        setCurrentStoryForQuiz(story);
-        setCurrentQuestions(story.questions);
-        setUserAnswers({});
-        setQuizSubmitted(false);
-        setQuizScore(0);
-        setShowQuiz(true);
-      } else {
-        alert("Bravo ! Tu as marqué cette histoire comme lue ! 🌟");
-      }
     } catch (err) {
-      console.error("Error marking story as read:", err);
-      console.error("Error details:", {
-        message: err.message,
-        code: err.code,
-        currentUser: currentUser,
-        storyId: storyId,
-        authState: auth.currentUser ? 'authenticated' : 'not authenticated'
-      });
-      
-      if (err.code === 'permission-denied') {
-        alert("Erreur de permissions: Vérifiez que vous êtes bien connecté et que les règles Firestore sont correctes.");
-      } else {
-        alert(`Oups ! Il y a eu un problème: ${err.message}. Essaie encore !`);
-      }
+      console.error("Error adding reading record:", err);
+      throw err;
     }
   };
 
@@ -208,15 +224,34 @@ export default function StudentInterface() {
     }));
   };
 
-  const submitQuiz = () => {
+  const submitQuiz = async () => {
     let score = 0;
     currentQuestions.forEach((question, index) => {
       if (userAnswers[index] === question.correctAnswer) {
         score++;
       }
     });
+    
     setQuizScore(score);
     setQuizSubmitted(true);
+    
+    // Check if passing score (70% or more)
+    const passingScore = Math.ceil(currentQuestions.length * 0.7);
+    const passed = score >= passingScore;
+    setIsPassingScore(passed);
+    
+    if (passed) {
+      // Mark story as completed
+      try {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          await addReadingRecord(currentUser.uid, currentStoryForQuiz.id);
+        }
+      } catch (err) {
+        console.error("Error marking story as completed:", err);
+      }
+    }
   };
 
   const closeQuiz = () => {
@@ -226,6 +261,7 @@ export default function StudentInterface() {
     setQuizSubmitted(false);
     setQuizScore(0);
     setCurrentStoryForQuiz(null);
+    setIsPassingScore(false);
   };
 
   if (loading) {
@@ -354,7 +390,7 @@ export default function StudentInterface() {
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-4 border-yellow-400 shadow-xl relative overflow-hidden">
               {/* Background decorations */}
               <div className="absolute top-2 right-2 text-xl sm:text-2xl animate-spin">⭐</div>
-              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl animate-bounce">🎪</div>
+              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl animate-bounce"></div>
               
               <div className="flex flex-col sm:flex-row items-center justify-between relative z-10 gap-4 sm:gap-6">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -365,7 +401,7 @@ export default function StudentInterface() {
                   <div className="hidden sm:block w-2 h-16 bg-gradient-to-b from-pink-400 to-yellow-400 rounded-full"></div>
                   <div className="text-center bg-gradient-to-br from-green-400 to-blue-500 text-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg">
                     <div className="text-2xl sm:text-3xl font-black">{stories.length}</div>
-                    <div className="text-xs sm:text-sm font-bold">🎪 Disponibles</div>
+                    <div className="text-xs sm:text-sm font-bold"> Disponibles</div>
                   </div>
                 </div>
                 <div className="text-center bg-gradient-to-br from-purple-500 to-pink-500 text-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg">
@@ -389,7 +425,7 @@ export default function StudentInterface() {
                   {showFavorites ? 'Pas de favoris !' : 'Pas d\'histoires pour le moment !'}
                 </h3>
                 <p className="text-orange-500 font-bold text-sm sm:text-lg">
-                  {showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 'Demande à ton maître de t\'en ajouter ! 🎪✨'}
+                  {showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 'Demande à ton maître de t\'en ajouter !✨'}
                 </p>
               </div>
             </div>
@@ -545,6 +581,9 @@ export default function StudentInterface() {
               <p className="text-purple-100 mt-2">
                 Histoire: {currentStoryForQuiz?.title}
               </p>
+              <p className="text-purple-200 text-sm mt-1">
+                Réponds correctement pour marquer l'histoire comme terminée ! ✨
+              </p>
             </div>
             
             <div className="p-6 overflow-auto max-h-[70vh]">
@@ -582,14 +621,22 @@ export default function StudentInterface() {
                 </div>
               ) : (
                 <div className="text-center">
-                  <div className="text-8xl mb-6">🎉</div>
+                  <div className="text-8xl mb-6">{isPassingScore ? '🎉' : '😔'}</div>
                   <h4 className="text-3xl font-bold text-purple-800 mb-4">
-                    Bravo ! Ton score: {quizScore}/{currentQuestions.length}
+                    {isPassingScore ? 'Bravo !' : 'Dommage !'} Ton score: {quizScore}/{currentQuestions.length}
                   </h4>
                   <div className="text-2xl mb-6">
-                    {quizScore === currentQuestions.length ? 'Parfait ! Tu es un champion !' : 
-                     quizScore >= currentQuestions.length * 0.7 ? '👏 Très bien ! Continue comme ça !' : 
-                     'Pas mal ! Continue à lire pour t\'améliorer !'}
+                    {isPassingScore ? (
+                      <div>
+                        <div className="text-green-600 mb-2">🏆 Histoire marquée comme terminée !</div>
+                        <div>Parfait ! Tu es un champion !</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-orange-600 mb-2">📚 Histoire pas encore terminée</div>
+                        <div>Continue à lire et essaie encore !</div>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={closeQuiz}
@@ -610,7 +657,7 @@ export default function StudentInterface() {
       {/* Floating fun elements */}
       <div className="absolute bottom-10 left-10 text-2xl sm:text-3xl animate-bounce delay-1000">🎈</div>
       <div className="absolute bottom-16 right-20 text-xl sm:text-2xl animate-pulse delay-1500">🦄</div>
-      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl animate-bounce delay-2000">🎪</div>
+      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl animate-bounce delay-2000"></div>
     </div>
   );
 }
