@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award, Menu, X } from 'lucide-react';
+import { UserIcon, GraduationCapIcon, BookOpenIcon, BarChart3Icon, Bell, Settings, Search, Plus, Eye, Edit3, Trash2, Users, Calendar, TrendingUp, Award, Menu, X, Clock, Star } from 'lucide-react';
 import { collection, getDocs, doc, getDoc, deleteDoc, query, where } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
@@ -13,6 +13,7 @@ export default function TeacherDashboard() {
     const [students, setStudents] = useState([]);
     const [stories, setStories] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [readingHistory, setReadingHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [teacher, setTeacher] = useState(null);
@@ -46,10 +47,35 @@ export default function TeacherDashboard() {
                         const studentsSnap = await getDocs(studentsQ);
                         setStudents(studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-                        // Fetch stories for this teacher
+                        // Fetch ALL stories first to debug
+                        const allStoriesSnap = await getDocs(collection(db, "story"));
+                        console.log('All stories:', allStoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        
+                        // Then filter stories for this teacher
                         const storiesQ = query(collection(db, "story"), where("teacherId", "==", user.uid));
                         const storiesSnap = await getDocs(storiesQ);
-                        setStories(storiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        const teacherStories = storiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        console.log('Teacher stories:', teacherStories);
+                        setStories(teacherStories);
+
+                        // If no stories found with teacherId, try to get all stories (for debugging)
+                        if (teacherStories.length === 0) {
+                            console.log('No stories found with teacherId, fetching all stories...');
+                            setStories(allStoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        }
+
+                        // Fetch reading history for all students
+                        const studentIds = studentsSnap.docs.map(doc => doc.id);
+                        const readingHistoryData = [];
+                        
+                        for (const studentId of studentIds) {
+                            const historyQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentId));
+                            const historySnapshot = await getDocs(historyQuery);
+                            const studentHistory = historySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                            readingHistoryData.push(...studentHistory);
+                        }
+                        
+                        setReadingHistory(readingHistoryData);
 
                     } else {
                         setTeacher(null);
@@ -93,6 +119,12 @@ export default function TeacherDashboard() {
     }, {});
     const averageStudentsPerClass = classes.length > 0 ? Math.round(students.length / classes.length) : 0;
 
+    // Reading history stats
+    const totalStoriesRead = readingHistory.length;
+    const averageScore = readingHistory.length > 0 
+        ? Math.round(readingHistory.reduce((total, record) => total + (record.score || 0), 0) / readingHistory.length)
+        : 0;
+
     // --- Chart Data ---
     const classChartData = Object.entries(classDistribution).map(([classId, value]) => ({
         name: classes.find(cls => cls.id === classId)?.name || classId,
@@ -114,6 +146,16 @@ export default function TeacherDashboard() {
     const getClassName = (classId) => {
         const found = classes.find((cls) => cls.id === classId);
         return found ? found.name : classId;
+    };
+
+    const getStudentName = (studentId) => {
+        const found = students.find((student) => student.id === studentId);
+        return found ? found.name : studentId;
+    };
+
+    const getStoryTitle = (storyId) => {
+        const found = stories.find((story) => story.id === storyId);
+        return found ? found.title : storyId;
     };
 
     const getStatsData = () => {
@@ -141,12 +183,15 @@ export default function TeacherDashboard() {
 
     const stats = getStatsData();
 
-
-
     // Search logic
     const filteredStudents = students.filter(s => s.name?.toLowerCase().includes(search.toLowerCase()));
     const filteredStories = stories.filter(story => story.title?.toLowerCase().includes(search.toLowerCase()));
     const filteredClasses = classes.filter(cls => cls.name?.toLowerCase().includes(search.toLowerCase()));
+    const filteredReadingHistory = readingHistory.filter(record => {
+        const studentName = getStudentName(record.studentId).toLowerCase();
+        const storyTitle = getStoryTitle(record.storyId).toLowerCase();
+        return studentName.includes(search.toLowerCase()) || storyTitle.includes(search.toLowerCase());
+    });
 
     // Add effect to close profile menu on outside click
     useEffect(() => {
@@ -189,7 +234,8 @@ export default function TeacherDashboard() {
         { id: 'dashboard', label: 'Tableau de bord', icon: BarChart3Icon },
         { id: 'students', label: 'Élèves', icon: GraduationCapIcon },
         { id: 'stories', label: 'Histoires', icon: BookOpenIcon },
-        { id: 'classes', label: 'Classes', icon: Users }
+        { id: 'classes', label: 'Classes', icon: Users },
+        { id: 'reading-history', label: 'Lectures', icon: Clock }
     ];
 
     const handleDeleteStudent = async (studentId) => {
@@ -449,18 +495,22 @@ export default function TeacherDashboard() {
                         {activeTab === 'dashboard' ? 'Tableau de Bord' :
                          activeTab === 'students' ? 'Gestion des Élèves' :
                          activeTab === 'stories' ? 'Gestion des Histoires' :
-                         'Gestion des Classes'}
+                         activeTab === 'classes' ? 'Gestion des Classes' :
+                         'Historique de Lecture'}
                     </h2>
                     <p className="text-slate-500 text-sm">Bienvenue dans votre espace d'enseignement</p>
                 </div>
-                {/* Search Bar: only for students, stories, classes */}
-                {(activeTab === 'students' || activeTab === 'stories' || activeTab === 'classes') && (
+                {/* Search Bar: only for students, stories, classes, reading-history */}
+                {(activeTab === 'students' || activeTab === 'stories' || activeTab === 'classes' || activeTab === 'reading-history') && (
                     <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-6">
                         <div className="relative flex-1 max-w-md">
                             <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder={activeTab === 'students' ? 'Rechercher un élève...' : activeTab === 'stories' ? 'Rechercher une histoire...' : 'Rechercher une classe...'}
+                                placeholder={activeTab === 'students' ? 'Rechercher un élève...' : 
+                                           activeTab === 'stories' ? 'Rechercher une histoire...' : 
+                                           activeTab === 'classes' ? 'Rechercher une classe...' :
+                                           'Rechercher une lecture...'}
                                 className="w-full pl-10 pr-4 py-2 bg-white/60 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-black placeholder-slate-400"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
@@ -509,13 +559,13 @@ export default function TeacherDashboard() {
                                     <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
-                                                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                                                <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
-                                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 group-hover:text-blue-100 transition-colors" />
+                                            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 group-hover:text-purple-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{levels.length}</div>
-                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Niveaux</div>
-                                        <div className="text-xs sm:text-sm mt-1 text-blue-600 group-hover:text-blue-100 transition-colors">4 niveaux</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{totalStoriesRead}</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Histoires Lues</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-purple-600 group-hover:text-purple-100 transition-colors">Total</div>
                                     </div>
                                 </div>
                                 
@@ -524,13 +574,13 @@ export default function TeacherDashboard() {
                                     <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="p-2 sm:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl text-white group-hover:bg-white/20 transition-colors">
-                                                <BarChart3Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                                                <Star className="w-5 h-5 sm:w-6 sm:h-6" />
                                             </div>
                                             <Award className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 group-hover:text-orange-100 transition-colors" />
                                         </div>
-                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{averageStudentsPerClass}</div>
-                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Moy. Élèves/Classe</div>
-                                        <div className="text-xs sm:text-sm mt-1 text-orange-600 group-hover:text-orange-100 transition-colors">Équilibré</div>
+                                        <div className="text-2xl sm:text-3xl font-bold mb-2 text-slate-800 group-hover:text-white transition-colors">{averageScore}%</div>
+                                        <div className="font-medium text-sm sm:text-base text-slate-600 group-hover:text-white transition-colors">Score Moyen</div>
+                                        <div className="text-xs sm:text-sm mt-1 text-orange-600 group-hover:text-orange-100 transition-colors">Quiz</div>
                                     </div>
                                 </div>
                             </div>
@@ -599,6 +649,91 @@ export default function TeacherDashboard() {
                                 </div>
                             </div>
                         </>
+                    )}
+
+                    {activeTab === 'reading-history' && (
+                        <div className="space-y-4 sm:space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-slate-600 text-sm sm:text-base">
+                                        <span className="font-medium">{readingHistory.length}</span> lectures enregistrées
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Reading History Table */}
+                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-50/50 border-b border-slate-200">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Élève</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Histoire</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Score</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Questions</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filteredReadingHistory.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">
+                                                        <Clock className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                                                        <p className="text-lg">Aucune lecture enregistrée</p>
+                                                        <p className="text-sm text-slate-400 mt-2">Les lectures de vos élèves apparaîtront ici</p>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredReadingHistory.map((record) => (
+                                                    <tr key={record.id} className="hover:bg-white/40 transition-colors">
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                                                                    {getStudentName(record.studentId).charAt(0)}
+                                                                </div>
+                                                                <div className="ml-4">
+                                                                    <div className="text-sm font-medium text-slate-800">{getStudentName(record.studentId)}</div>
+                                                                    <div className="text-sm text-slate-500">
+                                                                        {getClassName(students.find(s => s.id === record.studentId)?.classId)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm font-medium text-slate-800">{getStoryTitle(record.storyId)}</div>
+                                                            <div className="text-sm text-slate-500">
+                                                                {stories.find(s => s.id === record.storyId)?.language || 'N/A'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                                                (record.score || 0) >= 70 
+                                                                    ? 'bg-green-100 text-green-700' 
+                                                                    : (record.score || 0) >= 50 
+                                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                                    : 'bg-red-100 text-red-700'
+                                                            }`}>
+                                                                {Math.round(record.score || 0)}%
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
+                                                            {record.correctAnswers || 0}/{record.questionsAnswered || 0}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                            {record.completedAt && record.completedAt.seconds
+                                                                ? new Date(record.completedAt.seconds * 1000).toLocaleDateString('fr-FR')
+                                                                : record.createdAt && record.createdAt.seconds
+                                                                ? new Date(record.createdAt.seconds * 1000).toLocaleDateString('fr-FR')
+                                                                : 'N/A'}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {activeTab === 'students' && (

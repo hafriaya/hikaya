@@ -77,11 +77,20 @@ export default function StudentInterface() {
       const storiesData = storiesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setStories(storiesData);
 
-      // Fetch reading history for this student
-      const historyQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentId));
-      const historySnapshot = await getDocs(historyQuery);
-      const historyData = historySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setReadingHistory(historyData);
+      // Find the student document that matches this user
+      const studentQuery = query(collection(db, "students"), where("teacherId", "==", studentId));
+      const studentSnapshot = await getDocs(studentQuery);
+      
+      if (!studentSnapshot.empty) {
+        const studentDocId = studentSnapshot.docs[0].id;
+        // Fetch reading history for this student using the student document ID
+        const historyQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentDocId));
+        const historySnapshot = await getDocs(historyQuery);
+        const historyData = historySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setReadingHistory(historyData);
+      } else {
+        setReadingHistory([]);
+      }
     } catch (err) {
       console.error("Error fetching data:", err);
     }
@@ -178,7 +187,11 @@ export default function StudentInterface() {
     const currentUser = auth.currentUser;
     if (!currentUser) return false;
     
-    return readingHistory.some(record => record.studentId === currentUser.uid && record.storyId === storyId);
+    // Find the student document ID for this user
+    const studentQuery = query(collection(db, "students"), where("teacherId", "==", currentUser.uid));
+    // This is a synchronous operation, so we need to handle it differently
+    
+    return readingHistory.some(record => record.storyId === storyId);
   };
 
   // Toggle favorite
@@ -280,8 +293,20 @@ export default function StudentInterface() {
         console.log('Current user UID:', currentUser.uid);
         console.log('Story ID:', currentStoryId);
 
+        // Find the student document that matches this user
+        const studentQuery = query(collection(db, "students"), where("studentId", "==", currentUser.uid));
+        const studentSnapshot = await getDocs(studentQuery);
+        
+        if (studentSnapshot.empty) {
+          alert(`Erreur: Impossible de trouver l'élève correspondant.`);
+          return;
+        }
+        
+        const studentDocId = studentSnapshot.docs[0].id;
+        console.log('Found student document ID:', studentDocId);
+
         const readingRecord = {
-          studentId: currentUser.uid,
+          studentId: studentDocId, // Use the student document ID, not the auth UID
           storyId: currentStoryId,
           completedAt: Timestamp.now(),
           score: quizScore,
