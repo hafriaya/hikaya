@@ -25,6 +25,7 @@ export default function StudentInterface() {
   const [celebrationMode, setCelebrationMode] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showReadBooks, setShowReadBooks] = useState(false);
   
   // Quiz states
   const [showQuiz, setShowQuiz] = useState(false);
@@ -53,7 +54,7 @@ export default function StudentInterface() {
             }
           } else {
             router.push('/login');
-            }
+          }
         } catch (err) {
           console.error("Error fetching student data:", err);
         } finally {
@@ -199,8 +200,21 @@ export default function StudentInterface() {
     });
   };
 
-  // Filter stories based on favorites
-  const filteredStories = showFavorites ? stories.filter(story => favorites.includes(story.id)) : stories;
+  // Filter stories based on current view
+  const getFilteredStories = () => {
+    if (showReadBooks) {
+      // Show only books the student has read
+      return stories.filter(story => hasReadStory(story.id));
+    } else if (showFavorites) {
+      // Show only favorite books
+      return stories.filter(story => favorites.includes(story.id));
+    } else {
+      // Show all available books
+      return stories;
+    }
+  };
+
+  const filteredStories = getFilteredStories();
 
   const handleLogout = async () => {
     try {
@@ -264,21 +278,37 @@ export default function StudentInterface() {
     setIsPassingScore(false);
   };
 
+  // Navigation handlers
+  const handleShowAllBooks = () => {
+    setShowFavorites(false);
+    setShowReadBooks(false);
+  };
+
+  const handleShowFavorites = () => {
+    setShowFavorites(true);
+    setShowReadBooks(false);
+  };
+
+  const handleShowReadBooks = () => {
+    setShowReadBooks(true);
+    setShowFavorites(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 to-blue-300 flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Floating shapes */}
-        <div className="absolute top-20 left-20 w-16 h-16 bg-yellow-300 rounded-full animate-bounce opacity-70"></div>
-        <div className="absolute top-40 right-32 w-12 h-12 bg-pink-400 rounded-full animate-pulse opacity-60"></div>
-        <div className="absolute bottom-32 left-1/4 w-20 h-20 bg-blue-400 rounded-full animate-bounce delay-500 opacity-50"></div>
+        {/* Floating shapes - NO ANIMATION */}
+        <div className="absolute top-20 left-20 w-16 h-16 bg-yellow-300 rounded-full opacity-70"></div>
+        <div className="absolute top-40 right-32 w-12 h-12 bg-pink-400 rounded-full opacity-60"></div>
+        <div className="absolute bottom-32 left-1/4 w-20 h-20 bg-blue-400 rounded-full opacity-50"></div>
         
         <div className="text-center z-10">
-          <div className="animate-bounce mb-6">
+          <div className="mb-6">
             <div className="w-32 h-32 bg-gradient-to-br from-yellow-400 via-pink-400 to-purple-500 rounded-full flex items-center justify-center mx-auto shadow-2xl border-4 border-white">
-              <BookOpen className="w-16 h-16 text-white animate-pulse" />
+              <BookOpen className="w-16 h-16 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-black text-purple-800 mb-4 animate-pulse">✨ Préparation magique... ✨</h2>
+          <h2 className="text-3xl font-black text-purple-800 mb-4">✨ Préparation magique... ✨</h2>
           <p className="text-xl text-purple-700 font-bold">Tes aventures arrivent ! 🚀🌈</p>
         </div>
       </div>
@@ -289,20 +319,20 @@ export default function StudentInterface() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-purple-200 via-blue-200 to-green-200 relative overflow-hidden">
-      {/* Floating decorative elements */}
-      <div className="absolute top-10 left-10 w-8 h-8 bg-yellow-400 rounded-full animate-bounce opacity-60"></div>
-      <div className="absolute top-32 right-20 w-6 h-6 bg-pink-500 rounded-full animate-pulse opacity-70"></div>
-      <div className="absolute top-60 left-1/3 w-10 h-10 bg-blue-400 rounded-full animate-bounce delay-300 opacity-50"></div>
-      <div className="absolute bottom-40 right-1/4 w-12 h-12 bg-green-400 rounded-full animate-pulse delay-700 opacity-60"></div>
+      {/* Floating decorative elements - NO ANIMATION */}
+      <div className="absolute top-10 left-10 w-8 h-8 bg-yellow-400 rounded-full opacity-60"></div>
+      <div className="absolute top-32 right-20 w-6 h-6 bg-pink-500 rounded-full opacity-70"></div>
+      <div className="absolute top-60 left-1/3 w-10 h-10 bg-blue-400 rounded-full opacity-50"></div>
+      <div className="absolute bottom-40 right-1/4 w-12 h-12 bg-green-400 rounded-full opacity-60"></div>
 
-      {/* Celebration Mode */}
+      {/* Celebration Mode - NO ANIMATION */}
       {celebrationMode && (
         <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
-          <div className="text-6xl animate-bounce">🎉</div>
-          <div className="absolute top-20 left-20 text-4xl animate-spin">⭐</div>
-          <div className="absolute top-32 right-32 text-5xl animate-pulse">🌟</div>
-          <div className="absolute bottom-40 left-1/4 text-3xl animate-bounce delay-500">✨</div>
-          <div className="absolute bottom-32 right-1/3 text-4xl animate-spin delay-300">🎊</div>
+          <div className="text-6xl">🎉</div>
+          <div className="absolute top-20 left-20 text-4xl">⭐</div>
+          <div className="absolute top-32 right-32 text-5xl">🌟</div>
+          <div className="absolute bottom-40 left-1/4 text-3xl">✨</div>
+          <div className="absolute bottom-32 right-1/3 text-4xl">🎊</div>
         </div>
       )}
 
@@ -320,20 +350,31 @@ export default function StudentInterface() {
 
             {/* Center Navigation - Kid Style */}
             <div className="hidden sm:flex items-center gap-4">
-              <button className="flex items-center gap-2 px-6 py-3 bg-white/90 backdrop-blur text-purple-600 rounded-2xl font-bold text-sm shadow-lg hover:scale-105 transition-all">
+              <button 
+                onClick={handleShowAllBooks}
+                className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm shadow-lg hover:scale-105 transition-all ${
+                  !showFavorites && !showReadBooks 
+                    ? 'bg-white/90 backdrop-blur text-purple-600' 
+                    : 'bg-white/50 backdrop-blur text-purple-400 hover:bg-white/70'
+                }`}
+              >
                 <BookOpen className="w-5 h-5" />
                 📖 Mes Livres
               </button>
               <button 
-                className={`flex items-center gap-2 p-3 text-white hover:text-yellow-300 transition-colors hover:scale-110 ${showFavorites ? 'text-yellow-300' : ''}`}
-                onClick={() => setShowFavorites(!showFavorites)}
+                onClick={handleShowFavorites}
+                className={`flex items-center gap-2 p-3 text-white hover:text-yellow-300 transition-colors hover:scale-110 ${
+                  showFavorites ? 'text-yellow-300' : ''
+                }`}
               >
                 <Heart className="w-6 h-6" />
               </button>
-              <button className="flex items-center gap-2 p-3 text-white hover:text-yellow-300 transition-colors hover:scale-110">
-                <Star className="w-6 h-6" />
-              </button>
-              <button className="flex items-center gap-2 p-3 text-white hover:text-yellow-300 transition-colors hover:scale-110">
+              <button 
+                onClick={handleShowReadBooks}
+                className={`flex items-center gap-2 p-3 text-white hover:text-yellow-300 transition-colors hover:scale-110 ${
+                  showReadBooks ? 'text-yellow-300' : ''
+                }`}
+              >
                 <Trophy className="w-6 h-6" />
               </button>
             </div>
@@ -357,18 +398,31 @@ export default function StudentInterface() {
           {/* Mobile Navigation */}
           <div className="sm:hidden mt-3 flex items-center justify-center gap-3">
             <button 
-              className={`flex items-center gap-1 px-3 py-2 bg-white/90 backdrop-blur text-purple-600 rounded-xl font-bold text-xs shadow-lg ${!showFavorites ? 'ring-2 ring-yellow-400' : ''}`}
-              onClick={() => setShowFavorites(false)}
+              onClick={handleShowAllBooks}
+              className={`flex items-center gap-1 px-3 py-2 bg-white/90 backdrop-blur text-purple-600 rounded-xl font-bold text-xs shadow-lg ${
+                !showFavorites && !showReadBooks ? 'ring-2 ring-yellow-400' : ''
+              }`}
             >
               <BookOpen className="w-4 h-4" />
               📖 Tous
             </button>
             <button 
-              className={`flex items-center gap-1 px-3 py-2 bg-white/90 backdrop-blur text-purple-600 rounded-xl font-bold text-xs shadow-lg ${showFavorites ? 'ring-2 ring-yellow-400' : ''}`}
-              onClick={() => setShowFavorites(true)}
+              onClick={handleShowFavorites}
+              className={`flex items-center gap-1 px-3 py-2 bg-white/90 backdrop-blur text-purple-600 rounded-xl font-bold text-xs shadow-lg ${
+                showFavorites ? 'ring-2 ring-yellow-400' : ''
+              }`}
             >
               <Heart className="w-4 h-4" />
               ❤️ Favoris
+            </button>
+            <button 
+              onClick={handleShowReadBooks}
+              className={`flex items-center gap-1 px-3 py-2 bg-white/90 backdrop-blur text-purple-600 rounded-xl font-bold text-xs shadow-lg ${
+                showReadBooks ? 'ring-2 ring-yellow-400' : ''
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              🏆 Lues
             </button>
           </div>
         </div>
@@ -381,16 +435,20 @@ export default function StudentInterface() {
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-purple-800 mb-2 sm:mb-4 drop-shadow-lg">
             🎨 Tes Aventures Magiques ! ✨
           </h1>
-          <p className="text-sm sm:text-xl text-purple-700 font-bold">Découvre des histoires incroyables qui t'attendent ! 🌟</p>
+          <p className="text-sm sm:text-xl text-purple-700 font-bold">
+            {showReadBooks ? 'Tes histoires terminées ! 🏆' : 
+             showFavorites ? 'Tes histoires préférées ! ❤️' : 
+             'Découvre des histoires incroyables qui t\'attendent ! 🌟'}
+          </p>
         </div>
 
         {/* Super Fun Progress Stats */}
         {readCount > 0 && (
           <div className="mb-6 sm:mb-10">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-4 border-yellow-400 shadow-xl relative overflow-hidden">
-              {/* Background decorations */}
-              <div className="absolute top-2 right-2 text-xl sm:text-2xl animate-spin">⭐</div>
-              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl animate-bounce"></div>
+              {/* Background decorations - NO ANIMATION */}
+              <div className="absolute top-2 right-2 text-xl sm:text-2xl">⭐</div>
+              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl"></div>
               
               <div className="flex flex-col sm:flex-row items-center justify-between relative z-10 gap-4 sm:gap-6">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -422,10 +480,14 @@ export default function StudentInterface() {
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 border-4 border-orange-400 shadow-xl max-w-md mx-auto">
                 <div className="text-4xl sm:text-6xl mb-4">📚</div>
                 <h3 className="text-lg sm:text-2xl font-black text-orange-600 mb-2 sm:mb-4">
-                  {showFavorites ? 'Pas de favoris !' : 'Pas d\'histoires pour le moment !'}
+                  {showReadBooks ? 'Aucune histoire terminée !' : 
+                   showFavorites ? 'Pas de favoris !' : 
+                   'Pas d\'histoires pour le moment !'}
                 </h3>
                 <p className="text-orange-500 font-bold text-sm sm:text-lg">
-                  {showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 'Demande à ton maître de t\'en ajouter !✨'}
+                  {showReadBooks ? 'Lis des histoires pour les voir ici ! 📖' : 
+                   showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 
+                   'Demande à ton maître de t\'en ajouter ! ✨'}
                 </p>
               </div>
             </div>
@@ -457,31 +519,31 @@ export default function StudentInterface() {
                         />
                       ) : (
                         <div className={`w-full h-full bg-gradient-to-br ${cardColor} flex items-center justify-center relative overflow-hidden`}>
-                          {/* Decorative elements */}
-                          <div className="absolute top-2 left-2 text-lg sm:text-2xl animate-bounce">⭐</div>
-                          <div className="absolute top-2 right-2 text-lg sm:text-2xl animate-pulse">✨</div>
-                          <div className="absolute bottom-2 left-2 text-lg sm:text-2xl animate-bounce delay-500">🌟</div>
+                          {/* Decorative elements - NO ANIMATION */}
+                          <div className="absolute top-2 left-2 text-lg sm:text-2xl">⭐</div>
+                          <div className="absolute top-2 right-2 text-lg sm:text-2xl">✨</div>
+                          <div className="absolute bottom-2 left-2 text-lg sm:text-2xl">🌟</div>
                           
                           <div className="text-center text-white z-10">
-                            <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 animate-pulse" />
+                            <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3" />
                             <div className="text-sm sm:text-lg font-black drop-shadow-lg">Histoire Magique</div>
                           </div>
                         </div>
                       )}
                       
-                      {/* Fun Read Status Badge */}
+                      {/* Fun Read Status Badge - NO ANIMATION */}
                       {isRead && (
                         <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-bounce">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                             <div className="text-sm sm:text-lg">🏆</div>
                           </div>
                         </div>
                       )}
 
-                      {/* Favorite Badge */}
+                      {/* Favorite Badge - NO ANIMATION */}
                       {isFavorite && (
                         <div className="absolute top-2 sm:top-3 left-2 sm:left-3">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-pink-400 to-red-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-pulse">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-pink-400 to-red-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                             <div className="text-sm sm:text-lg">💖</div>
                           </div>
                         </div>
@@ -525,8 +587,8 @@ export default function StudentInterface() {
                       {story.title}
                     </h3>
                     
-                    {/* Super Fun Action Button */}
-                    {!isRead && (
+                    {/* Super Fun Action Button - Only show for unread books */}
+                    {!isRead && !showReadBooks && (
                       <button
                         onClick={(e) => {e.preventDefault(); markStoryAsRead(story.id)}}
                         className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl hover:shadow-xl transition-all hover:scale-105 border-2 border-white"
@@ -535,7 +597,7 @@ export default function StudentInterface() {
                       </button>
                     )}
                     
-                    {/* Completed Badge */}
+                    {/* Completed Badge - Only show for read books */}
                     {isRead && (
                       <div className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-green-400 to-blue-500 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl border-2 border-white flex items-center justify-center gap-1 sm:gap-2">
                         <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -571,12 +633,12 @@ export default function StudentInterface() {
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold">🧠 Quiz de Compréhension</h3>
-                <button
+            <button
                   onClick={closeQuiz}
                   className="text-white hover:text-gray-200 transition-colors"
-                >
+            >
                   <X className="w-6 h-6" />
-                </button>
+            </button>
               </div>
               <p className="text-purple-100 mt-2">
                 Histoire: {currentStoryForQuiz?.title}
@@ -654,10 +716,10 @@ export default function StudentInterface() {
       {/* Fun Bottom Wave */}
       <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-24 bg-gradient-to-t from-purple-400 via-pink-300 to-transparent"></div>
       
-      {/* Floating fun elements */}
-      <div className="absolute bottom-10 left-10 text-2xl sm:text-3xl animate-bounce delay-1000">🎈</div>
-      <div className="absolute bottom-16 right-20 text-xl sm:text-2xl animate-pulse delay-1500">🦄</div>
-      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl animate-bounce delay-2000"></div>
+      {/* Floating fun elements - NO ANIMATION */}
+      <div className="absolute bottom-10 left-10 text-2xl sm:text-3xl">🎈</div>
+      <div className="absolute bottom-16 right-20 text-xl sm:text-2xl">🦄</div>
+      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl"></div>
     </div>
   );
 }
