@@ -542,7 +542,6 @@ export default function StudentInterface() {
               
               return (
                 <div key={story.id} className="group cursor-pointer transform hover:scale-105 transition-all duration-300">
-                  <a href={`/users/student/stories/${story.id}`} className="block group" tabIndex={0} aria-label={`Voir l'histoire ${story.title}`}> 
                   <div className="relative">
                     {/* Super Fun Book Cover */}
                     <div className="aspect-[3/4] bg-white rounded-2xl sm:rounded-3xl shadow-lg overflow-hidden border-4 border-white relative group-hover:shadow-2xl transition-all duration-300">
@@ -608,9 +607,6 @@ export default function StudentInterface() {
                         >
                           <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? 'text-white' : 'text-gray-300'}`} />
                         </button>
-                        <button className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg border-2 border-white" onClick={e => {e.preventDefault(); alert('🔊 Audio magique à venir !')}}>
-                          <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                        </button>
                       </div>
                       <div className="bg-gradient-to-r from-purple-400 to-pink-500 text-white px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-lg">
                         ⚡ {Math.floor(Math.random() * 1000) + 100}
@@ -640,7 +636,6 @@ export default function StudentInterface() {
                       </div>
                     )}
                   </div>
-                  </a>
                   <button
                     className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-600 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl hover:shadow-xl transition-all hover:scale-105 border-2 border-white"
                     onClick={e => {
