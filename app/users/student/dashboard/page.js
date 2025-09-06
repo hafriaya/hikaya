@@ -224,18 +224,33 @@ export default function StudentInterface() {
 
   // Quiz functions
   const handleAnswerSelect = (questionIndex, answerIndex) => {
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: answerIndex
-    }));
+    console.log('handleAnswerSelect called:', { questionIndex, answerIndex });
+    console.log('Current selectedAnswers:', selectedAnswers);
+    
+    setSelectedAnswers(prev => {
+      const newAnswers = {
+        ...prev,
+        [questionIndex]: answerIndex
+      };
+      console.log('New selectedAnswers:', newAnswers);
+      return newAnswers;
+    });
   };
 
   const handleNextQuestion = () => {
+    console.log('handleNextQuestion called, currentQuestionIndex:', currentQuestionIndex);
+    console.log('Total questions:', questions.length);
+    
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentQuestionIndex(prev => {
+        const newIndex = prev + 1;
+        console.log('Moving to question index:', newIndex);
+        return newIndex;
+      });
       setShowHint(false); // Reset hint visibility for next question
     } else {
       // Quiz completed, calculate score
+      console.log('Quiz completed, calculating score...');
       calculateScore();
     }
   };
@@ -686,19 +701,47 @@ export default function StudentInterface() {
                       )}
 
                       <div className="space-y-3">
-                        {questions[currentQuestionIndex].options.map((option, optionIndex) => (
-                          <button
-                            key={optionIndex}
-                            onClick={() => handleAnswerSelect(currentQuestionIndex, optionIndex)}
-                            className={`w-full p-4 text-left rounded-xl border-2 transition-all ${
-                              selectedAnswers[currentQuestionIndex] === optionIndex
-                                ? 'border-purple-500 bg-purple-100 text-purple-700'
-                                : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
-                            }`}
-                          >
-                            <span className="font-medium text-black">{option}</span>
-                          </button>
-                        ))}
+                        {questions[currentQuestionIndex].options.map((option, optionIndex) => {
+                          const isSelected = selectedAnswers[currentQuestionIndex] === optionIndex;
+                          const isCorrect = optionIndex === questions[currentQuestionIndex].correctAnswerIndex;
+                          const hasAnswered = selectedAnswers[currentQuestionIndex] !== undefined;
+                          
+                          console.log('Rendering option:', {
+                            optionIndex,
+                            option,
+                            isSelected,
+                            isCorrect,
+                            hasAnswered,
+                            currentQuestionIndex,
+                            selectedAnswers
+                          });
+                          
+                          return (
+                            <button
+                              key={optionIndex}
+                              onClick={() => !hasAnswered && handleAnswerSelect(currentQuestionIndex, optionIndex)}
+                              disabled={hasAnswered}
+                              className={`w-full p-4 text-left rounded-xl border-2 transition-all relative ${
+                                hasAnswered
+                                  ? isCorrect
+                                    ? 'border-green-500 bg-green-100 text-green-700'
+                                    : isSelected
+                                    ? 'border-red-500 bg-red-100 text-red-700'
+                                    : 'border-gray-200 bg-gray-100 text-gray-500'
+                                  : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
+                              } ${hasAnswered ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-black flex-1">{option}</span>
+                                {hasAnswered && isSelected && (
+                                  <div className="text-lg">
+                                    {isCorrect ? '✅' : '❌'}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
