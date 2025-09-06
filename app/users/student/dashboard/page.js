@@ -29,12 +29,15 @@ export default function StudentInterface() {
   
   // Quiz states
   const [showQuiz, setShowQuiz] = useState(false);
-  const [currentQuestions, setCurrentQuestions] = useState([]);
-  const [userAnswers, setUserAnswers] = useState({});
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
-  const [currentStoryForQuiz, setCurrentStoryForQuiz] = useState(null);
+  const [currentStoryId, setCurrentStoryId] = useState(null);
   const [isPassingScore, setIsPassingScore] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [showHint, setShowHint] = useState(false); // Add hint visibility state
   
   const router = useRouter();
 
@@ -99,58 +102,47 @@ export default function StudentInterface() {
 
   const markStoryAsRead = async (storyId) => {
     console.log('markStoryAsRead called with storyId:', storyId);
+    console.log('student object:', student);
     
     // Get the current authenticated user
     const auth = getAuth();
     const currentUser = auth.currentUser;
     
     if (!currentUser) {
-      console.error('No authenticated user');
-      alert("Erreur: Utilisateur non connecté. Rechargez la page.");
+      alert('Erreur: ID utilisateur non disponible. Rechargez la page.');
       return;
     }
-    
-    if (!currentUser.uid) {
-      console.error('No user UID available');
-      alert("Erreur: ID utilisateur non disponible. Rechargez la page.");
-      return;
-    }
-    
+
     try {
-      // Check if already read
-      const alreadyRead = readingHistory.some(record => record.studentId === currentUser.uid && record.storyId === storyId);
-      if (alreadyRead) {
-        alert("Tu as déjà lu cette histoire ! 🎉");
+      // First, load questions for this story from the questions collection
+      const questionsQuery = query(collection(db, 'questions'), where('storyId', '==', storyId));
+      const questionsSnapshot = await getDocs(questionsQuery);
+      const questionsData = questionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      if (questionsData.length === 0) {
+        alert('Aucune question disponible pour cette histoire.');
         return;
       }
 
-      // Find the story
-      const story = stories.find(s => s.id === storyId);
-      if (!story) {
-        alert("Histoire non trouvée !");
-        return;
-      }
+      // Sort questions by order field
+      questionsData.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-      // Fetch questions from the questions collection
-      const questions = await fetchQuestionsForStory(storyId);
-      
-      if (questions && questions.length > 0) {
-        // Show quiz first
-        setCurrentStoryForQuiz(story);
-        setCurrentQuestions(questions);
-        setUserAnswers({});
-        setQuizSubmitted(false);
-        setQuizScore(0);
-        setIsPassingScore(false);
-        setShowQuiz(true);
-      } else {
-        // No questions available, mark as read directly
-        await addReadingRecord(currentUser.uid, storyId);
-        alert("Bravo ! Tu as marqué cette histoire comme lue ! 🌟");
-      }
-    } catch (err) {
-      console.error("Error in markStoryAsRead:", err);
-      alert(`Oups ! Il y a eu un problème: ${err.message}. Essaie encore !`);
+      // Set up quiz
+      setQuestions(questionsData);
+      setCurrentStoryId(storyId);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswers({});
+      setQuizScore(0);
+      setShowResults(false);
+      setIsPassingScore(false);
+      setShowQuiz(true);
+
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      alert('Oups ! Il y a eu un problème: ' + error.message + '. Essaie encore !');
     }
   };
 
@@ -231,50 +223,78 @@ export default function StudentInterface() {
   };
 
   // Quiz functions
-  const handleAnswerChange = (questionIndex, answerIndex) => {
-    setUserAnswers(prev => ({
+  const handleAnswerSelect = (questionIndex, answerIndex) => {
+    setSelectedAnswers(prev => ({
       ...prev,
       [questionIndex]: answerIndex
     }));
   };
 
-  const submitQuiz = async () => {
-    let score = 0;
-    currentQuestions.forEach((question, index) => {
-      if (userAnswers[index] === question.correctAnswer) {
-        score++;
-      }
-    });
-    
-    setQuizScore(score);
-    setQuizSubmitted(true);
-    
-    // Check if passing score (70% or more)
-    const passingScore = Math.ceil(currentQuestions.length * 0.7);
-    const passed = score >= passingScore;
-    setIsPassingScore(passed);
-    
-    if (passed) {
-      // Mark story as completed
-      try {
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          await addReadingRecord(currentUser.uid, currentStoryForQuiz.id);
-        }
-      } catch (err) {
-        console.error("Error marking story as completed:", err);
-      }
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setShowHint(false); // Reset hint visibility for next question
+    } else {
+      // Quiz completed, calculate score
+      calculateScore();
     }
   };
 
-  const closeQuiz = () => {
+  const calculateScore = () => {
+    let correctAnswers = 0;
+    questions.forEach((question, index) => {
+      if (selectedAnswers[index] === question.correctAnswerIndex) {
+        correctAnswers++;
+      }
+    });
+    
+    const score = (correctAnswers / questions.length) * 100;
+    setQuizScore(score);
+    setIsPassingScore(score >= 70); // 70% passing score
+    setShowResults(true);
+  };
+
+  const handleQuizComplete = async () => {
+    if (isPassingScore) {
+      // Mark story as read in reading history
+      try {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        
+        console.log('Adding reading record to Firestore...');
+        console.log('Current user UID:', currentUser.uid);
+        console.log('Story ID:', currentStoryId);
+
+        const readingRecord = {
+          studentId: currentUser.uid,
+          storyId: currentStoryId,
+          completedAt: Timestamp.now(),
+          score: quizScore,
+          questionsAnswered: questions.length,
+          correctAnswers: Math.round((quizScore / 100) * questions.length)
+        };
+
+        const docRef = await addDoc(collection(db, 'readingHistory'), readingRecord);
+        console.log('Reading record added with ID:', docRef.id);
+
+        // Refresh student data
+        await fetchStudentData(currentUser.uid);
+        console.log('Refreshing student data...');
+
+        alert(`Bravo ! Tu as marqué cette histoire comme lue ! 🌟\nScore: ${Math.round(quizScore)}%`);
+      } catch (error) {
+        console.error('Error marking story as read:', error);
+        alert('Oups ! Il y a eu un problème: ' + error.message + '. Essaie encore !');
+      }
+    }
+    
     setShowQuiz(false);
-    setCurrentQuestions([]);
-    setUserAnswers({});
-    setQuizSubmitted(false);
+    setQuestions([]);
+    setCurrentStoryId(null);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers({});
     setQuizScore(0);
-    setCurrentStoryForQuiz(null);
+    setShowResults(false);
     setIsPassingScore(false);
   };
 
@@ -628,87 +648,114 @@ export default function StudentInterface() {
 
       {/* Quiz Modal */}
       {showQuiz && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold">🧠 Quiz de Compréhension</h3>
-            <button
-                  onClick={closeQuiz}
-                  className="text-white hover:text-gray-200 transition-colors"
-            >
-                  <X className="w-6 h-6" />
-            </button>
-              </div>
-              <p className="text-purple-100 mt-2">
-                Histoire: {currentStoryForQuiz?.title}
-              </p>
-              <p className="text-purple-200 text-sm mt-1">
-                Réponds correctement pour marquer l'histoire comme terminée ! ✨
-              </p>
-            </div>
-            
-            <div className="p-6 overflow-auto max-h-[70vh]">
-              {!quizSubmitted ? (
-                <div className="space-y-6">
-                  {currentQuestions.map((question, index) => (
-                    <div key={index} className="border rounded-2xl p-6 bg-gradient-to-br from-purple-50 to-pink-50">
-                      <h4 className="font-bold text-lg mb-4 text-purple-800">
-                        Question {index + 1}: {question.question}
-                      </h4>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {!showResults ? (
+              // Quiz Questions
+              <div>
+                <div className="text-center mb-6">
+                  <div className="text-4xl mb-2">📚</div>
+                  <h2 className="text-2xl font-bold text-purple-600">Quiz de l'histoire</h2>
+                  <p className="text-gray-600">Question {currentQuestionIndex + 1} sur {questions.length}</p>
+                </div>
+
+                {questions[currentQuestionIndex] && (
+                  <div>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4">
+                        {questions[currentQuestionIndex].questionText}
+                      </h3>
+                      
+                      {questions[currentQuestionIndex].hint && (
+                        <div className="mb-4">
+                          <button
+                            onClick={() => setShowHint(!showHint)}
+                            className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-yellow-800 font-medium hover:bg-yellow-200 transition-all"
+                          >
+                            💡 {showHint ? 'Masquer l\'indice' : 'Voir l\'indice'}
+                          </button>
+                          
+                          {showHint && (
+                            <div className="mt-3 bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+                              <p className="text-sm text-yellow-800">
+                                <strong>Indice:</strong> {questions[currentQuestionIndex].hint}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="space-y-3">
-                        {question.options?.map((option, optionIndex) => (
-                          <label key={optionIndex} className="flex items-center space-x-3 cursor-pointer p-3 rounded-xl hover:bg-purple-100 transition-colors">
-                            <input
-                              type="radio"
-                              name={`question-${index}`}
-                              value={optionIndex}
-                              checked={userAnswers[index] === optionIndex}
-                              onChange={() => handleAnswerChange(index, optionIndex)}
-                              className="text-purple-600 w-4 h-4"
-                            />
-                            <span className="text-gray-700 font-medium">{option}</span>
-                          </label>
+                        {questions[currentQuestionIndex].options.map((option, optionIndex) => (
+                          <button
+                            key={optionIndex}
+                            onClick={() => handleAnswerSelect(currentQuestionIndex, optionIndex)}
+                            className={`w-full p-4 text-left rounded-xl border-2 transition-all ${
+                              selectedAnswers[currentQuestionIndex] === optionIndex
+                                ? 'border-purple-500 bg-purple-100 text-purple-700'
+                                : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
+                            }`}
+                          >
+                            <span className="font-medium text-black">{option}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
-                  ))}
-                  
-                  <button
-                    onClick={submitQuiz}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-2xl hover:shadow-xl transition-all text-lg"
-                  >
-                    🎯 Soumettre mes réponses
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <div className="text-8xl mb-6">{isPassingScore ? '🎉' : '😔'}</div>
-                  <h4 className="text-3xl font-bold text-purple-800 mb-4">
-                    {isPassingScore ? 'Bravo !' : 'Dommage !'} Ton score: {quizScore}/{currentQuestions.length}
-                  </h4>
-                  <div className="text-2xl mb-6">
-                    {isPassingScore ? (
-                      <div>
-                        <div className="text-green-600 mb-2">🏆 Histoire marquée comme terminée !</div>
-                        <div>Parfait ! Tu es un champion !</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="text-orange-600 mb-2">📚 Histoire pas encore terminée</div>
-                        <div>Continue à lire et essaie encore !</div>
-                      </div>
-                    )}
+
+                    <div className="flex justify-between">
+                      <button
+                        onClick={() => setShowQuiz(false)}
+                        className="px-6 py-3 bg-gray-500 text-white rounded-xl font-bold hover:bg-gray-600 transition-all"
+                      >
+                        Annuler
+                      </button>
+                      
+                      <button
+                        onClick={handleNextQuestion}
+                        disabled={selectedAnswers[currentQuestionIndex] === undefined}
+                        className="px-6 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {currentQuestionIndex < questions.length - 1 ? 'Suivant' : 'Terminer'}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={closeQuiz}
-                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl hover:shadow-xl transition-all font-bold text-lg"
-                  >
-                    ✨ Fermer
-                  </button>
+                )}
+              </div>
+            ) : (
+              // Quiz Results
+              <div className="text-center">
+                <div className="text-6xl mb-4">
+                  {isPassingScore ? '🎉' : '😔'}
                 </div>
-              )}
-            </div>
+                <h2 className="text-3xl font-bold text-purple-600 mb-4">
+                  {isPassingScore ? 'Bravo !' : 'Dommage !'}
+                </h2>
+                <p className="text-xl text-gray-600 mb-6">
+                  Tu as obtenu {Math.round(quizScore)}% de bonnes réponses
+                </p>
+                
+                {isPassingScore ? (
+                  <div className="bg-green-100 border border-green-300 rounded-lg p-4 mb-6">
+                    <p className="text-green-800 font-bold">
+                      🏆 Excellent ! Tu as bien compris l'histoire !
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-red-100 border border-red-300 rounded-lg p-4 mb-6">
+                    <p className="text-red-800 font-bold">
+                      📚 Tu peux relire l'histoire et réessayer !
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleQuizComplete}
+                  className="px-8 py-4 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
+                >
+                  {isPassingScore ? 'Continuer' : 'Fermer'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
