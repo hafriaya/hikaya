@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, getDocs, doc, getDoc, query, where, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
-import { BookOpen, Star, Heart, CheckCircle, Play, Volume2, Smile, ArrowLeft, Sparkles, Home, Grid, Info, Menu, Search, Bell, Filter, Trophy, Gift, Zap } from 'lucide-react';
+import { BookOpen, Star, Heart, CheckCircle, Play, Volume2, Smile, ArrowLeft, Sparkles, Home, Grid, Info, Menu, Search, Bell, Filter, Trophy, Gift, Zap, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { pdfjs } from 'react-pdf';
 
@@ -25,7 +25,15 @@ export default function StudentInterface() {
   const [celebrationMode, setCelebrationMode] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [showFavorites, setShowFavorites] = useState(false);
-  const [pdfOpenStory, setPdfOpenStory] = useState(null);
+  
+  // Quiz states
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [currentQuestions, setCurrentQuestions] = useState([]);
+  const [userAnswers, setUserAnswers] = useState({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+  const [currentStoryForQuiz, setCurrentStoryForQuiz] = useState(null);
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -44,7 +52,7 @@ export default function StudentInterface() {
             }
           } else {
             router.push('/login');
-          }
+            }
         } catch (err) {
           console.error("Error fetching student data:", err);
         } finally {
@@ -75,40 +83,93 @@ export default function StudentInterface() {
   };
 
   const markStoryAsRead = async (storyId) => {
-    if (!student) return;
+    console.log('markStoryAsRead called with storyId:', storyId);
+    console.log('student object:', student);
+    
+    // Get the current authenticated user
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      console.error('No authenticated user');
+      alert("Erreur: Utilisateur non connecté. Rechargez la page.");
+      return;
+    }
+    
+    if (!currentUser.uid) {
+      console.error('No user UID available');
+      alert("Erreur: ID utilisateur non disponible. Rechargez la page.");
+      return;
+    }
     
     try {
       // Check if already read
-      const alreadyRead = readingHistory.some(record => record.storyId === storyId);
+      const alreadyRead = readingHistory.some(record => record.studentId === currentUser.uid && record.storyId === storyId);
       if (alreadyRead) {
         alert("Tu as déjà lu cette histoire ! 🎉");
         return;
       }
 
-      // Add reading record
-      await addDoc(collection(db, "readingHistory"), {
-        studentId: student.uid,
+      console.log('Adding reading record to Firestore...');
+      console.log('Current user UID:', currentUser.uid);
+      console.log('Story ID:', storyId);
+      
+      // Add reading record using the authenticated user's UID
+      const docRef = await addDoc(collection(db, "readingHistory"), {
+        studentId: currentUser.uid,
         storyId: storyId,
         createdAt: Timestamp.now(),
         completed: true
       });
+      
+      console.log('Reading record added with ID:', docRef.id);
 
       // Refresh reading history
-      await fetchStudentData(student.uid);
+      console.log('Refreshing student data...');
+      await fetchStudentData(currentUser.uid);
+      
+      // Find the story to check for questions
+      const story = stories.find(s => s.id === storyId);
       
       // Trigger celebration
       setCelebrationMode(true);
       setTimeout(() => setCelebrationMode(false), 3000);
       
-      alert("Bravo ! Tu as marqué cette histoire comme lue ! 🌟");
+      // If story has questions, show quiz instead of success message
+      if (story && story.questions && story.questions.length > 0) {
+        setCurrentStoryForQuiz(story);
+        setCurrentQuestions(story.questions);
+        setUserAnswers({});
+        setQuizSubmitted(false);
+        setQuizScore(0);
+        setShowQuiz(true);
+      } else {
+        alert("Bravo ! Tu as marqué cette histoire comme lue ! 🌟");
+      }
     } catch (err) {
       console.error("Error marking story as read:", err);
-      alert("Oups ! Il y a eu un problème. Essaie encore !");
+      console.error("Error details:", {
+        message: err.message,
+        code: err.code,
+        currentUser: currentUser,
+        storyId: storyId,
+        authState: auth.currentUser ? 'authenticated' : 'not authenticated'
+      });
+      
+      if (err.code === 'permission-denied') {
+        alert("Erreur de permissions: Vérifiez que vous êtes bien connecté et que les règles Firestore sont correctes.");
+      } else {
+        alert(`Oups ! Il y a eu un problème: ${err.message}. Essaie encore !`);
+      }
     }
   };
 
   const hasReadStory = (storyId) => {
-    return readingHistory.some(record => record.studentId === student?.uid && record.storyId === storyId);
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return false;
+    
+    return readingHistory.some(record => record.studentId === currentUser.uid && record.storyId === storyId);
   };
 
   // Toggle favorite
@@ -132,6 +193,39 @@ export default function StudentInterface() {
     } catch (err) {
       console.error("Error signing out:", err);
     }
+  };
+
+  // Open PDF in new tab
+  const openPDFInNewTab = (pdfUrl) => {
+    window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Quiz functions
+  const handleAnswerChange = (questionIndex, answerIndex) => {
+    setUserAnswers(prev => ({
+      ...prev,
+      [questionIndex]: answerIndex
+    }));
+  };
+
+  const submitQuiz = () => {
+    let score = 0;
+    currentQuestions.forEach((question, index) => {
+      if (userAnswers[index] === question.correctAnswer) {
+        score++;
+      }
+    });
+    setQuizScore(score);
+    setQuizSubmitted(true);
+  };
+
+  const closeQuiz = () => {
+    setShowQuiz(false);
+    setCurrentQuestions([]);
+    setUserAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(0);
+    setCurrentStoryForQuiz(null);
   };
 
   if (loading) {
@@ -212,7 +306,7 @@ export default function StudentInterface() {
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden sm:block bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-lg">
                 <div className="text-sm font-bold text-purple-600">
-                  👋 Salut {student?.name || 'Champion'} !
+                  👋 Salut {student?.fullName || 'Champion'} !
                 </div>
               </div>
               <button
@@ -260,7 +354,7 @@ export default function StudentInterface() {
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-4 border-yellow-400 shadow-xl relative overflow-hidden">
               {/* Background decorations */}
               <div className="absolute top-2 right-2 text-xl sm:text-2xl animate-spin">⭐</div>
-              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl animate-bounce">🌟</div>
+              <div className="absolute bottom-2 left-2 text-xl sm:text-2xl animate-bounce">🎪</div>
               
               <div className="flex flex-col sm:flex-row items-center justify-between relative z-10 gap-4 sm:gap-6">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -271,7 +365,7 @@ export default function StudentInterface() {
                   <div className="hidden sm:block w-2 h-16 bg-gradient-to-b from-pink-400 to-yellow-400 rounded-full"></div>
                   <div className="text-center bg-gradient-to-br from-green-400 to-blue-500 text-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg">
                     <div className="text-2xl sm:text-3xl font-black">{stories.length}</div>
-                    <div className="text-xs sm:text-sm font-bold">🎭 Disponibles</div>
+                    <div className="text-xs sm:text-sm font-bold">🎪 Disponibles</div>
                   </div>
                 </div>
                 <div className="text-center bg-gradient-to-br from-purple-500 to-pink-500 text-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg">
@@ -295,7 +389,7 @@ export default function StudentInterface() {
                   {showFavorites ? 'Pas de favoris !' : 'Pas d\'histoires pour le moment !'}
                 </h3>
                 <p className="text-orange-500 font-bold text-sm sm:text-lg">
-                  {showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 'Demande à ton maître de t\'en ajouter ! 🎓✨'}
+                  {showFavorites ? 'Ajoute des histoires à tes favoris ! 💖' : 'Demande à ton maître de t\'en ajouter ! 🎪✨'}
                 </p>
               </div>
             </div>
@@ -418,7 +512,11 @@ export default function StudentInterface() {
                     className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-600 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl hover:shadow-xl transition-all hover:scale-105 border-2 border-white"
                     onClick={e => {
                       e.preventDefault();
-                      setPdfOpenStory(story);
+                      if (story.pdfUrl) {
+                        openPDFInNewTab(story.pdfUrl);
+                      } else {
+                        alert('PDF non disponible pour cette histoire !');
+                      }
                     }}
                   >
                     📖 Lire le PDF
@@ -430,29 +528,77 @@ export default function StudentInterface() {
         </div>
       </div>
 
-      {/* PDF Viewer */}
-      {typeof window !== "undefined" && pdfOpenStory && pdfOpenStory.pdfUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-3xl w-full relative flex flex-col items-center">
-            <button
-              className="absolute top-4 right-4 px-4 py-2 bg-pink-500 text-white rounded-lg font-bold shadow hover:bg-pink-600 transition"
-              onClick={() => setPdfOpenStory(null)}
-            >
-              Fermer
-            </button>
-            <h3 className="text-2xl font-extrabold mb-6 text-black text-center">{pdfOpenStory.title}</h3>
-            <div className="w-full h-[70vh] rounded-lg overflow-hidden border-2 border-gray-200 shadow-lg">
-              <iframe
-                src={pdfOpenStory.pdfUrl}
-                width="100%"
-                height="100%"
-                style={{
-                  border: "none",
-                  borderRadius: "0.75rem",
-                  background: "#f9fafb"
-                }}
-                title={pdfOpenStory.title}
-              />
+      {/* Quiz Modal */}
+      {showQuiz && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold">🧠 Quiz de Compréhension</h3>
+                <button
+                  onClick={closeQuiz}
+                  className="text-white hover:text-gray-200 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-purple-100 mt-2">
+                Histoire: {currentStoryForQuiz?.title}
+              </p>
+            </div>
+            
+            <div className="p-6 overflow-auto max-h-[70vh]">
+              {!quizSubmitted ? (
+                <div className="space-y-6">
+                  {currentQuestions.map((question, index) => (
+                    <div key={index} className="border rounded-2xl p-6 bg-gradient-to-br from-purple-50 to-pink-50">
+                      <h4 className="font-bold text-lg mb-4 text-purple-800">
+                        Question {index + 1}: {question.question}
+                      </h4>
+                      <div className="space-y-3">
+                        {question.options?.map((option, optionIndex) => (
+                          <label key={optionIndex} className="flex items-center space-x-3 cursor-pointer p-3 rounded-xl hover:bg-purple-100 transition-colors">
+                            <input
+                              type="radio"
+                              name={`question-${index}`}
+                              value={optionIndex}
+                              checked={userAnswers[index] === optionIndex}
+                              onChange={() => handleAnswerChange(index, optionIndex)}
+                              className="text-purple-600 w-4 h-4"
+                            />
+                            <span className="text-gray-700 font-medium">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button
+                    onClick={submitQuiz}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 rounded-2xl hover:shadow-xl transition-all text-lg"
+                  >
+                    🎯 Soumettre mes réponses
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div className="text-8xl mb-6">🎉</div>
+                  <h4 className="text-3xl font-bold text-purple-800 mb-4">
+                    Bravo ! Ton score: {quizScore}/{currentQuestions.length}
+                  </h4>
+                  <div className="text-2xl mb-6">
+                    {quizScore === currentQuestions.length ? 'Parfait ! Tu es un champion !' : 
+                     quizScore >= currentQuestions.length * 0.7 ? '👏 Très bien ! Continue comme ça !' : 
+                     'Pas mal ! Continue à lire pour t\'améliorer !'}
+                  </div>
+                  <button
+                    onClick={closeQuiz}
+                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl hover:shadow-xl transition-all font-bold text-lg"
+                  >
+                    ✨ Fermer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -464,7 +610,7 @@ export default function StudentInterface() {
       {/* Floating fun elements */}
       <div className="absolute bottom-10 left-10 text-2xl sm:text-3xl animate-bounce delay-1000">🎈</div>
       <div className="absolute bottom-16 right-20 text-xl sm:text-2xl animate-pulse delay-1500">🦄</div>
-      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl animate-bounce delay-2000">🌈</div>
+      <div className="absolute bottom-8 left-1/3 text-3xl sm:text-4xl animate-bounce delay-2000">🎪</div>
     </div>
   );
 }
