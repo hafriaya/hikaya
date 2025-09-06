@@ -208,7 +208,7 @@ export default function ImportStudents() {
     if (!selectedClass) {
       errors.push('Classe requise');
     }
-    
+
     if (!selectedTeacher) {
       errors.push('Enseignant requis');
     }
@@ -382,7 +382,7 @@ export default function ImportStudents() {
         {/* Excel Upload Section */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Import depuis un fichier Excel</h2>
-          
+
           {/* File Upload */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -499,4 +499,4 @@ export default function ImportStudents() {
       </div>
     </div>
   );
-}
+} 

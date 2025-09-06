@@ -85,9 +85,9 @@ export default function StudentInterface() {
         const studentDocId = studentSnapshot.docs[0].id;
         // Fetch reading history for this student using the student document ID
         const historyQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentDocId));
-        const historySnapshot = await getDocs(historyQuery);
-        const historyData = historySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setReadingHistory(historyData);
+      const historySnapshot = await getDocs(historyQuery);
+      const historyData = historySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setReadingHistory(historyData);
       } else {
         setReadingHistory([]);
       }
@@ -811,13 +811,13 @@ export default function StudentInterface() {
                   </div>
                 )}
 
-                <button
+            <button
                   onClick={handleQuizComplete}
                   className="px-8 py-4 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
-                >
+            >
                   {isPassingScore ? 'Continuer' : 'Fermer'}
-                </button>
-              </div>
+            </button>
+            </div>
             )}
           </div>
         </div>

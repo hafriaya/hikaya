@@ -103,7 +103,7 @@ export default function StudentDetailPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl w-full max-w-md shadow-2xl text-center border border-white/20 p-8">
           <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-6"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-6"></div>
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 opacity-10 animate-pulse"></div>
           </div>
           <p className="text-slate-600 text-lg font-medium">Chargement des données de l'élève...</p>
@@ -136,7 +136,7 @@ export default function StudentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
-      {/* Header */}
+        {/* Header */}
       <div className="bg-white/90 backdrop-blur border-b border-white/20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -151,7 +151,7 @@ export default function StudentDetailPage() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
 
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
         {/* Student Info Card */}
@@ -170,7 +170,7 @@ export default function StudentDetailPage() {
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   <span>{student.age || 'N/A'} ans</span>
-                </div>
+              </div>
                 <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                   student.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                 }`}>
@@ -178,8 +178,8 @@ export default function StudentDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+                  </div>
+                </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -192,8 +192,8 @@ export default function StudentDetailPage() {
                 <div className="text-2xl font-bold text-slate-800">{readStories.length}</div>
                 <div className="text-sm text-slate-600">Histoires lues</div>
               </div>
-            </div>
-          </div>
+                  </div>
+                </div>
           
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
             <div className="flex items-center gap-4">
@@ -206,7 +206,7 @@ export default function StudentDetailPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
@@ -261,14 +261,14 @@ export default function StudentDetailPage() {
                           {record?.completedAt && record.completedAt.seconds
                             ? new Date(record.completedAt.seconds * 1000).toLocaleDateString('fr-FR')
                             : 'N/A'}
-                        </div>
+                          </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
-          </div>
+              )}
+            </div>
 
           {/* Available Stories */}
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
