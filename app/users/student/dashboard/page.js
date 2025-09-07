@@ -75,7 +75,7 @@ export default function StudentInterface() {
       setStories(storiesData);
 
       // Find the student document that matches this user
-      const studentQuery = query(collection(db, "students"), where("teacherId", "==", studentId));
+      const studentQuery = query(collection(db, "students"), where("userId", "==", studentId));
       const studentSnapshot = await getDocs(studentQuery);
       
       if (!studentSnapshot.empty) {
