@@ -13,6 +13,8 @@ import StoriesGrid from '../components/StoriesGrid';
 import QuizModal from '../components/QuizModal';
 import LoadingScreen from '../components/LoadingScreen';
 import CelebrationOverlay from '../components/CelebrationOverlay';
+import NavigationLoading from '@/app/components/NavigationLoading';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
 
 export default function StudentInterface() {
   const [student, setStudent] = useState(null);
@@ -35,6 +37,12 @@ export default function StudentInterface() {
   const [isPassingScore, setIsPassingScore] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  
+  // Loading states
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   
   const router = useRouter();
 
@@ -106,6 +114,8 @@ export default function StudentInterface() {
       return;
     }
 
+    setIsLoadingQuiz(true);
+
     try {
       // First, load questions for this story from the questions collection
       const questionsQuery = query(collection(db, 'questions'), where('storyId', '==', storyId));
@@ -117,6 +127,7 @@ export default function StudentInterface() {
 
       if (questionsData.length === 0) {
         alert('Aucune question disponible pour cette histoire.');
+        setIsLoadingQuiz(false);
         return;
       }
 
@@ -136,6 +147,8 @@ export default function StudentInterface() {
     } catch (error) {
       console.error('Error loading questions:', error);
       alert('Oups ! Il y a eu un problème: ' + error.message + '. Essaie encore !');
+    } finally {
+      setIsLoadingQuiz(false);
     }
   };
 
@@ -237,6 +250,8 @@ export default function StudentInterface() {
 
   const handleQuizComplete = async () => {
     if (isPassingScore) {
+      setIsSubmittingQuiz(true);
+      
       // Mark story as read in reading history
       try {
         const auth = getAuth();
@@ -252,6 +267,7 @@ export default function StudentInterface() {
         
         if (studentSnapshot.empty) {
           alert(`Erreur: Impossible de trouver l'élève correspondant.`);
+          setIsSubmittingQuiz(false);
           return;
         }
         
@@ -278,6 +294,8 @@ export default function StudentInterface() {
       } catch (error) {
         console.error('Error marking story as read:', error);
         alert('Oups ! Il y a eu un problème: ' + error.message + '. Essaie encore !');
+      } finally {
+        setIsSubmittingQuiz(false);
       }
     }
     
@@ -306,6 +324,32 @@ export default function StudentInterface() {
       <div className="absolute bottom-40 right-1/4 w-12 h-12 bg-green-400 rounded-full opacity-60"></div>
 
       <CelebrationOverlay celebrationMode={celebrationMode} />
+      
+      {/* Loading overlays */}
+      {isLoadingQuiz && (
+        <NavigationLoading destination="le quiz" role="student" />
+      )}
+      
+      {isSubmittingQuiz && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center border border-white/20 max-w-md mx-4">
+            <div className="mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-green-400 via-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto shadow-xl border-4 border-white animate-pulse">
+                <div className="text-4xl">🏆</div>
+              </div>
+            </div>
+            <h2 className="text-2xl font-black text-purple-800 mb-4">✨ Sauvegarde en cours... ✨</h2>
+            <p className="text-lg text-purple-700 font-bold mb-4">Ton progrès est enregistré ! 🌟</p>
+            
+            {/* Loading dots */}
+            <div className="flex justify-center space-x-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce"></div>
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce delay-200"></div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <StudentNavigation
         showFavorites={showFavorites}
@@ -332,15 +376,16 @@ export default function StudentInterface() {
 
         <ProgressStats readCount={readCount} totalStories={stories.length} />
 
-        <StoriesGrid
-          filteredStories={filteredStories}
-          hasReadStory={hasReadStory}
-          favorites={favorites}
-          toggleFavorite={toggleFavorite}
-          markStoryAsRead={markStoryAsRead}
-          openPDFInNewTab={openPDFInNewTab}
-          showReadBooks={showReadBooks}
-        />
+          <StoriesGrid
+            filteredStories={filteredStories}
+            hasReadStory={hasReadStory}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+            markStoryAsRead={markStoryAsRead}
+            openPDFInNewTab={openPDFInNewTab}
+            showReadBooks={showReadBooks}
+            isLoadingQuiz={isLoadingQuiz}
+          />
       </div>
 
       <QuizModal
@@ -357,6 +402,7 @@ export default function StudentInterface() {
         isPassingScore={isPassingScore}
         showHint={showHint}
         setShowHint={setShowHint}
+        isSubmittingQuiz={isSubmittingQuiz}
       />
 
       {/* Fun Bottom Wave */}

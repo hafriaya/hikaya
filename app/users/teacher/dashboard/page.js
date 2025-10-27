@@ -8,6 +8,8 @@ import { db } from "@/src/lib/firebase";
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
+import NavigationLoading from '@/app/components/NavigationLoading';
 
 export default function TeacherDashboard() {
     const [students, setStudents] = useState([]);
@@ -22,6 +24,12 @@ export default function TeacherDashboard() {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    
+    // Loading states
+    const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(false);
+    
     const router = typeof window !== 'undefined' ? require('next/navigation').useRouter() : null;
     const profileMenuRef = useRef(null);
     const notificationsRef = useRef(null);
@@ -240,6 +248,9 @@ export default function TeacherDashboard() {
 
     const handleDeleteStudent = async (studentId) => {
         if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) return;
+        
+        setIsDeletingStudent(true);
+        
         try {
             // Delete all readingHistory for this student
             const rhQuery = query(collection(db, "readingHistory"), where("studentId", "==", studentId));
@@ -251,6 +262,8 @@ export default function TeacherDashboard() {
             setStudents(prev => prev.filter(s => s.id !== studentId));
         } catch (err) {
             alert("Erreur lors de la suppression : " + err.message);
+        } finally {
+            setIsDeletingStudent(false);
         }
     };
 

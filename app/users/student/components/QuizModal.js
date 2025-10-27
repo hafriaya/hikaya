@@ -15,7 +15,8 @@ export default function QuizModal({
     quizScore,
     isPassingScore,
     showHint,
-    setShowHint
+    setShowHint,
+    isSubmittingQuiz = false
 }) {
     if (!showQuiz) return null;
 
@@ -140,9 +141,21 @@ export default function QuizModal({
 
                         <button
                             onClick={handleQuizComplete}
-                            className="px-8 py-4 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
+                            disabled={isSubmittingQuiz}
+                            className={`px-8 py-4 rounded-xl font-bold transition-all ${
+                                isSubmittingQuiz 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-purple-500 hover:bg-purple-600'
+                            } text-white`}
                         >
-                            {isPassingScore ? 'Continuer' : 'Fermer'}
+                            {isSubmittingQuiz ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Sauvegarde...</span>
+                                </div>
+                            ) : (
+                                isPassingScore ? 'Continuer' : 'Fermer'
+                            )}
                         </button>
                     </div>
                 )}

@@ -10,7 +10,8 @@ export default function StoriesGrid({
     toggleFavorite, 
     markStoryAsRead, 
     openPDFInNewTab,
-    showReadBooks 
+    showReadBooks,
+    isLoadingQuiz = false
 }) {
     if (filteredStories.length === 0) {
         return (
@@ -128,9 +129,21 @@ export default function StoriesGrid({
                             {!isRead && !showReadBooks && (
                                 <button
                                     onClick={(e) => {e.preventDefault(); markStoryAsRead(story.id)}}
-                                    className="w-full mt-2 sm:mt-3 py-2 sm:py-3 bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl hover:shadow-xl transition-all hover:scale-105 border-2 border-white"
+                                    disabled={isLoadingQuiz}
+                                    className={`w-full mt-2 sm:mt-3 py-2 sm:py-3 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl border-2 border-white transition-all ${
+                                        isLoadingQuiz 
+                                            ? 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 cursor-not-allowed opacity-70' 
+                                            : 'bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 hover:shadow-xl hover:scale-105'
+                                    }`}
                                 >
-                                    ✨ J&apos;ai lu cette histoire ! 🎉
+                                    {isLoadingQuiz ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Chargement...</span>
+                                        </div>
+                                    ) : (
+                                        '✨ J\'ai lu cette histoire ! 🎉'
+                                    )}
                                 </button>
                             )}
                             
